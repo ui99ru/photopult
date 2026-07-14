@@ -25,12 +25,12 @@ class AdaptiveController(
             congestion <= upThreshold -> { goodStreak++; badStreak = 0 }
             else -> { badStreak = 0; goodStreak = 0 }
         }
+        // Once past a streak threshold, keep stepping each sample (fast down, slow up); the opposite
+        // streak resets on the next opposing sample so we don't flap.
         if (badStreak >= downStreak && rung < rungCount - 1) {
             rung++
-            badStreak = 0
         } else if (goodStreak >= upStreak && rung > 0) {
             rung--
-            goodStreak = 0
         }
         return rung
     }
