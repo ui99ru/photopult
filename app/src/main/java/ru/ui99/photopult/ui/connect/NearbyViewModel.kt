@@ -2,11 +2,17 @@ package ru.ui99.photopult.ui.connect
 
 import android.app.Application
 import android.content.pm.PackageManager
+import android.view.Surface
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
+import ru.ui99.photopult.camera.CameraSession
+import ru.ui99.photopult.codec.PreviewReceiver
 import ru.ui99.photopult.net.nearby.ConnectionState
 import ru.ui99.photopult.net.nearby.NearbyConnectionManager
+import ru.ui99.photopult.net.protocol.RemoteCommand
 import ru.ui99.photopult.net.protocol.Role
 import ru.ui99.photopult.util.PairingStore
 import ru.ui99.photopult.util.Permissions
@@ -22,8 +28,12 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
     private val manager = NearbyConnectionManager(application, viewModelScope, pairing)
     val state = manager.state
     val peerState = manager.peerState
+    val streamConfig = manager.streamConfig
 
     private var started = false
+
+    private var cameraSession: CameraSession? = null
+    private var previewReceiver: PreviewReceiver? = null
 
     /** Remembered role from a previous pairing, if any (used to skip role selection on launch). */
     val rememberedRole: Role? get() = manager.rememberedRole
@@ -69,6 +79,44 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
 
     fun isConnected(): Boolean = state.value is ConnectionState.Connected
 
+    // ---- Preview streaming (Stage 3) ----
+
+    /** Camera role: start capturing and streaming to the connected remote. */
+    fun startCameraSession(lifecycleOwner: LifecycleOwner, deviceRotationProvider: () -> Int) {
+        if (cameraSession != null) return
+        cameraSession = CameraSession(getApplication<Application>(), lifecycleOwner, manager, deviceRotationProvider)
+            .also { it.start() }
+    }
+
+    /** Remote role: start receiving/decoding the preview. Feed it a surface + config. */
+    fun startPreviewReceiver() {
+        if (previewReceiver != null) return
+        val receiver = PreviewReceiver(manager).also { it.start() }
+        previewReceiver = receiver
+        viewModelScope.launch {
+            streamConfig.collect { config -> config?.let { receiver.setConfig(it) } }
+        }
+    }
+
+    fun setPreviewSurface(surface: Surface?) = previewReceiver?.setSurface(surface)
+
+    fun sendZoom(ratio: Float) = manager.sendCommand(RemoteCommand.Zoom(ratio))
+
+    fun switchCamera() = manager.sendCommand(RemoteCommand.SwitchCamera)
+
+    fun setBitrate(bps: Int) = cameraSession?.setBitrate(bps)
+
+    fun previewFramesRendered(): Long = previewReceiver?.framesRendered ?: 0
+    fun previewFramesDropped(): Long = previewReceiver?.framesDropped ?: 0
+
+    /** Stop preview sessions (leaving the connected screen / disconnect). */
+    fun stopSessions() {
+        cameraSession?.stop()
+        cameraSession = null
+        previewReceiver?.stop()
+        previewReceiver = null
+    }
+
     private fun missingPermissions(): List<String> {
         val context = getApplication<Application>()
         return Permissions.required().filter {
@@ -77,6 +125,7 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     override fun onCleared() {
+        stopSessions()
         manager.stop()
     }
 }

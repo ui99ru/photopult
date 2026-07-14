@@ -49,6 +49,12 @@
     <string name="connect_retry">Try again</string>
     <string name="connected_camera_note">Remote connected</string>
     <string name="pair_forget">Forget device</string>
+    <string name="camera_on_air_title">Camera on air</string>
+    <string name="camera_on_air_hint">The remote is in control. Leave the phone in place.</string>
+    <string name="camera_dim">Dim screen</string>
+    <string name="camera_disconnect">Disconnect</string>
+    <string name="remote_waiting_preview">Waiting for the camera preview…</string>
+    <string name="remote_switch_camera">Switch camera</string>
 
     <!-- Camera state on the remote (Stage 2b) -->
     <string name="state_waiting">Requesting camera state…</string>
@@ -75,4 +81,6 @@
     <string name="debug_state_connected">Connected to %1$s</string>
     <string name="debug_state_reconnecting">Reconnecting to %1$s</string>
     <string name="debug_state_failed">Error: %1$s</string>
+    <string name="debug_stream">Stream: %1$d×%2$d, rotation %3$d°</string>
+    <string name="debug_frames">Frames: rendered %1$d, dropped %2$d</string>
 </resources>

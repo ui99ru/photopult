@@ -49,6 +49,12 @@
     <string name="connect_retry">Попробовать снова</string>
     <string name="connected_camera_note">Пульт подключён</string>
     <string name="pair_forget">Забыть устройство</string>
+    <string name="camera_on_air_title">Камера на связи</string>
+    <string name="camera_on_air_hint">Пульт управляет съёмкой. Оставьте телефон на месте.</string>
+    <string name="camera_dim">Затемнить экран</string>
+    <string name="camera_disconnect">Отключить</string>
+    <string name="remote_waiting_preview">Жду видео с камеры…</string>
+    <string name="remote_switch_camera">Сменить камеру</string>
 
     <!-- Camera state on the remote (Stage 2b) -->
     <string name="state_waiting">Запрашиваю состояние камеры…</string>
@@ -75,4 +81,6 @@
     <string name="debug_state_connected">Подключено к %1$s</string>
     <string name="debug_state_reconnecting">Переподключение к %1$s</string>
     <string name="debug_state_failed">Ошибка: %1$s</string>
+    <string name="debug_stream">Стрим: %1$d×%2$d, поворот %3$d°</string>
+    <string name="debug_frames">Кадры: отрисовано %1$d, дропнуто %2$d</string>
 </resources>

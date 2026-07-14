@@ -14,9 +14,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -75,6 +79,35 @@ fun DebugScreen(
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(bottom = 8.dp),
         )
+
+        // Live preview-stream metrics (refresh a few times a second).
+        val streamConfig by viewModel.streamConfig.collectAsState()
+        var tick by remember { mutableIntStateOf(0) }
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(500)
+                tick++
+            }
+        }
+        streamConfig?.let { config ->
+            tick.let { } // recompose dependency so the counters below re-read
+            Text(
+                text = stringResource(R.string.debug_stream, config.width, config.height, config.rotationDegrees),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = stringResource(
+                    R.string.debug_frames,
+                    viewModel.previewFramesRendered(),
+                    viewModel.previewFramesDropped(),
+                ),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+
         Text(
             text = stringResource(R.string.debug_events, entries.size),
             style = MaterialTheme.typography.labelLarge,

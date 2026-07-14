@@ -46,20 +46,36 @@ fun ConnectionScreen(
 
     LaunchedEffect(role) { viewModel.start(role) }
 
+    val current = state
+    if (current is ConnectionState.Connected) {
+        // Full-screen role-specific experience (preview stream).
+        when (role) {
+            Role.CAMERA -> CameraConnectedScreen(
+                viewModel = viewModel,
+                onBack = onBack,
+                onForget = onForget,
+                onOpenDebug = onOpenDebug,
+                modifier = modifier,
+            )
+            Role.REMOTE -> RemoteConnectedScreen(
+                viewModel = viewModel,
+                peerName = current.peerName,
+                peerState = peerState,
+                onBack = onBack,
+                onForget = onForget,
+                onOpenDebug = onOpenDebug,
+                modifier = modifier,
+            )
+        }
+        return
+    }
+
     ScreenScaffold(modifier = modifier) {
-        when (val s = state) {
+        when (val s = current) {
             is ConnectionState.Confirming -> ConfirmContent(
                 state = s,
                 onConfirm = viewModel::confirm,
                 onReject = viewModel::reject,
-            )
-
-            is ConnectionState.Connected -> ConnectedContent(
-                role = role,
-                peerName = s.peerName,
-                peerState = peerState,
-                onRefresh = viewModel::requestState,
-                onForget = onForget,
             )
 
             is ConnectionState.Reconnecting -> SearchingLabel(
@@ -85,10 +101,12 @@ fun ConnectionScreen(
                     else R.string.connect_remote_searching,
                 ),
             )
+
+            is ConnectionState.Connected -> Unit // handled above
         }
 
         Spacer(Modifier.height(24.dp))
-        if (state !is ConnectionState.Confirming) {
+        if (current !is ConnectionState.Confirming) {
             TextButton(onClick = onBack) { Text(stringResource(R.string.action_back)) }
         }
         DebugLink(onOpenDebug)
@@ -200,91 +218,6 @@ private fun ConfirmContent(
     Spacer(Modifier.height(8.dp))
     OutlinedButton(onClick = onReject, modifier = Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.confirm_no))
-    }
-}
-
-@Composable
-private fun ConnectedContent(
-    role: Role,
-    peerName: String,
-    peerState: CameraEvent.State?,
-    onRefresh: () -> Unit,
-    onForget: () -> Unit,
-) {
-    Text(
-        text = stringResource(R.string.connect_connected_title),
-        style = MaterialTheme.typography.headlineLarge,
-        textAlign = TextAlign.Center,
-        color = MaterialTheme.colorScheme.onBackground,
-    )
-    Text(
-        text = stringResource(R.string.connect_connected_to, peerName),
-        style = MaterialTheme.typography.bodyLarge,
-        textAlign = TextAlign.Center,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 12.dp),
-    )
-
-    when (role) {
-        Role.CAMERA -> Text(
-            text = stringResource(R.string.connected_camera_note),
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 20.dp),
-        )
-
-        Role.REMOTE -> RemoteStatePanel(peerState = peerState, onRefresh = onRefresh)
-    }
-
-    Spacer(Modifier.height(20.dp))
-    TextButton(onClick = onForget) {
-        Text(stringResource(R.string.pair_forget))
-    }
-}
-
-@Composable
-private fun RemoteStatePanel(peerState: CameraEvent.State?, onRefresh: () -> Unit) {
-    Spacer(Modifier.height(24.dp))
-    if (peerState == null) {
-        Text(
-            text = stringResource(R.string.state_waiting),
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    } else {
-        val battery = if (peerState.battery in 0..100) {
-            stringResource(R.string.state_battery, peerState.battery)
-        } else {
-            stringResource(R.string.state_battery_unknown)
-        }
-        Text(
-            text = battery,
-            style = MaterialTheme.typography.titleLarge,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = stringResource(R.string.state_flash, peerState.flash) + "   " +
-                stringResource(R.string.state_lens, peerState.lens) + "   " +
-                stringResource(R.string.state_zoom, peerState.zoomRatio.toString()),
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-        Text(
-            text = stringResource(R.string.state_placeholder_note),
-            style = MaterialTheme.typography.labelLarge,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp),
-        )
-    }
-    Spacer(Modifier.height(16.dp))
-    Button(onClick = onRefresh, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.state_refresh))
     }
 }
 
