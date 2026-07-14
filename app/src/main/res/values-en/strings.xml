@@ -83,4 +83,6 @@
     <string name="debug_state_failed">Error: %1$s</string>
     <string name="debug_stream">Stream: %1$d×%2$d, rotation %3$d°</string>
     <string name="debug_frames">Frames: rendered %1$d, dropped %2$d</string>
+    <string name="debug_link">Link quality: %1$d/3</string>
+    <string name="debug_bitrate">Camera bitrate: %1$d kbps, %2$s</string>
 </resources>

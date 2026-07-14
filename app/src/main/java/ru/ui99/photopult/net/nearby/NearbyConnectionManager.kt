@@ -85,6 +85,10 @@ class NearbyConnectionManager(
     private val _streamConfig = MutableStateFlow<CameraEvent.StreamConfig?>(null)
     val streamConfig: StateFlow<CameraEvent.StreamConfig?> = _streamConfig.asStateFlow()
 
+    /** Latest link-quality level (1..3) reported by the camera (remote side only). */
+    private val _linkQuality = MutableStateFlow(3)
+    val linkQuality: StateFlow<Int> = _linkQuality.asStateFlow()
+
     private var role: Role? = null
     private val discovered = linkedMapOf<String, DiscoveredEndpoint>()
     private var pending: ConnectionState.Confirming? = null
@@ -555,6 +559,9 @@ class NearbyConnectionManager(
                         "mirror=${event.mirrored} fps=${event.fps}",
                 )
                 _streamConfig.value = event
+            }
+            is CameraEvent.LinkQuality -> {
+                _linkQuality.value = event.level.coerceIn(1, 3)
             }
         }
     }

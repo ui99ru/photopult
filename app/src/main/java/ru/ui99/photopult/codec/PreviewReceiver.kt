@@ -9,38 +9,42 @@ import ru.ui99.photopult.util.PhotopultLog
 /**
  * Remote-role coordinator: reads the incoming preview STREAM and decodes it to the preview surface.
  *
- * The decoder can only start once all three are known — the [Surface] (from the preview view), the
- * [CameraEvent.StreamConfig] (size), and the STREAM itself — which may arrive in any order, so each
- * setter re-checks. Frames read before then are dropped; the [KeyframeGate] resyncs at the next
- * keyframe.
+ * The decoder starts once the [Surface], the [CameraEvent.StreamConfig] (size) and the STREAM are
+ * all present (any order). If the camera changes resolution (adaptive ladder), a new StreamConfig
+ * with different dimensions restarts the decoder while the reader keeps consuming the same stream;
+ * frames resync at the next keyframe (the camera forces one after a resolution change).
  */
 class PreviewReceiver(
     private val manager: NearbyConnectionManager,
 ) {
-    private var decoder: H264Decoder? = null
+    @Volatile private var decoder: H264Decoder? = null
     private var readerThread: Thread? = null
 
     @Volatile private var surface: Surface? = null
     @Volatile private var config: CameraEvent.StreamConfig? = null
     @Volatile private var stream: InputStream? = null
-    @Volatile private var started = false
 
     fun start() {
         manager.streamListener = { input ->
             PhotopultLog.i("PreviewReceiver got STREAM")
             stream = input
-            maybeStartDecoder()
+            ensureReaderAndDecoder()
         }
     }
 
     fun setSurface(newSurface: Surface?) {
         surface = newSurface
-        if (newSurface != null) maybeStartDecoder()
+        if (newSurface != null) ensureReaderAndDecoder()
     }
 
     fun setConfig(newConfig: CameraEvent.StreamConfig) {
+        val old = config
         config = newConfig
-        maybeStartDecoder()
+        if (old != null && (old.width != newConfig.width || old.height != newConfig.height)) {
+            restartDecoder(newConfig)
+        } else {
+            ensureReaderAndDecoder()
+        }
     }
 
     val framesRendered: Long get() = decoder?.framesRendered ?: 0
@@ -48,24 +52,32 @@ class PreviewReceiver(
     val lastRenderAtMs: Long get() = decoder?.lastRenderAtMs ?: 0
 
     @Synchronized
-    private fun maybeStartDecoder() {
-        if (started) return
+    private fun ensureReaderAndDecoder() {
         val s = surface ?: return
         val c = config ?: return
         val input = stream ?: return
-        started = true
-        PhotopultLog.i("PreviewReceiver starting decoder ${c.width}x${c.height}")
-        val dec = H264Decoder(c.width, c.height, s)
-        dec.start()
-        decoder = dec
-        readerThread = Thread({ readLoop(input, dec) }, "photopult-stream-reader").also { it.start() }
+        if (decoder == null) {
+            PhotopultLog.i("PreviewReceiver starting decoder ${c.width}x${c.height}")
+            decoder = H264Decoder(c.width, c.height, s).also { it.start() }
+        }
+        if (readerThread == null) {
+            readerThread = Thread({ readLoop(input) }, "photopult-stream-reader").also { it.start() }
+        }
     }
 
-    private fun readLoop(input: InputStream, dec: H264Decoder) {
+    @Synchronized
+    private fun restartDecoder(newConfig: CameraEvent.StreamConfig) {
+        val s = surface ?: return
+        PhotopultLog.i("PreviewReceiver reconfigure decoder -> ${newConfig.width}x${newConfig.height}")
+        decoder?.stop()
+        decoder = H264Decoder(newConfig.width, newConfig.height, s).also { it.start() }
+    }
+
+    private fun readLoop(input: InputStream) {
         try {
             while (!Thread.currentThread().isInterrupted) {
                 val frame = StreamFraming.readFrame(input) ?: break
-                dec.submit(frame)
+                decoder?.submit(frame)
             }
         } catch (e: Exception) {
             PhotopultLog.w("stream reader ended: ${e.message}")
@@ -82,6 +94,5 @@ class PreviewReceiver(
         decoder = null
         runCatching { stream?.close() }
         stream = null
-        started = false
     }
 }

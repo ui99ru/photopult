@@ -60,6 +60,11 @@ sealed interface CameraEvent {
         val mirrored: Boolean,
         val fps: Int,
     ) : CameraEvent
+
+    /** Link quality as bars (1..3), no numbers — shown as an indicator on the remote. */
+    @Serializable
+    @SerialName("linkQuality")
+    data class LinkQuality(val level: Int) : CameraEvent
 }
 
 /** Encodes/decodes messages to/from the UTF-8 bytes carried by a Nearby BYTES payload. */

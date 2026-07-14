@@ -89,6 +89,7 @@ fun DebugScreen(
                 tick++
             }
         }
+        val linkLevel by viewModel.linkQuality.collectAsState()
         streamConfig?.let { config ->
             tick.let { } // recompose dependency so the counters below re-read
             Text(
@@ -102,6 +103,21 @@ fun DebugScreen(
                     viewModel.previewFramesRendered(),
                     viewModel.previewFramesDropped(),
                 ),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = stringResource(R.string.debug_link, linkLevel),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+        // Camera-side adaptive metrics (only present on the camera device).
+        val bitrate = tick.let { viewModel.cameraBitrate() }
+        if (bitrate > 0) {
+            Text(
+                text = stringResource(R.string.debug_bitrate, bitrate / 1000, viewModel.cameraResolution() ?: "—"),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(bottom = 8.dp),

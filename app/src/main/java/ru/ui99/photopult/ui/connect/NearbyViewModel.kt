@@ -29,6 +29,7 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
     val state = manager.state
     val peerState = manager.peerState
     val streamConfig = manager.streamConfig
+    val linkQuality = manager.linkQuality
 
     private var started = false
 
@@ -108,6 +109,10 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
 
     fun previewFramesRendered(): Long = previewReceiver?.framesRendered ?: 0
     fun previewFramesDropped(): Long = previewReceiver?.framesDropped ?: 0
+
+    /** Camera-side adaptive stream metrics (debug). */
+    fun cameraBitrate(): Int = cameraSession?.currentBitrate() ?: 0
+    fun cameraResolution(): String? = cameraSession?.currentResolution()
 
     /** Stop preview sessions (leaving the connected screen / disconnect). */
     fun stopSessions() {

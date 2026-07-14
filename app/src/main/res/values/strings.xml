@@ -83,4 +83,6 @@
     <string name="debug_state_failed">Ошибка: %1$s</string>
     <string name="debug_stream">Стрим: %1$d×%2$d, поворот %3$d°</string>
     <string name="debug_frames">Кадры: отрисовано %1$d, дропнуто %2$d</string>
+    <string name="debug_link">Качество связи: %1$d/3</string>
+    <string name="debug_bitrate">Битрейт камеры: %1$d кбит/с, %2$s</string>
 </resources>

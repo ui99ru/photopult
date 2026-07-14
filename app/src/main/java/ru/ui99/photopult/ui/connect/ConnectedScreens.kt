@@ -130,6 +130,7 @@ fun RemoteConnectedScreen(
     modifier: Modifier = Modifier,
 ) {
     val streamConfig by viewModel.streamConfig.collectAsState()
+    val linkLevel by viewModel.linkQuality.collectAsState()
 
     DisposableEffect(Unit) {
         viewModel.startPreviewReceiver()
@@ -173,6 +174,15 @@ fun RemoteConnectedScreen(
                 modifier = Modifier.align(Alignment.Center),
             )
         }
+
+        // Link quality bars (top-end), no numbers.
+        LinkQualityBars(
+            level = linkLevel,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .safeDrawingPadding()
+                .padding(16.dp),
+        )
 
         // Top overlay: camera battery + name.
         val batteryText = peerState?.takeIf { it.battery in 0..100 }
@@ -224,6 +234,26 @@ fun RemoteConnectedScreen(
                 TextButton(onClick = onForget) { Text(stringResource(R.string.pair_forget)) }
                 TextButton(onClick = onBack) { Text(stringResource(R.string.action_back)) }
             }
+        }
+    }
+}
+
+/** Three signal bars; [level] 1..3 filled, the rest dimmed. No numbers, per the brief. */
+@Composable
+private fun LinkQualityBars(level: Int, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        val heights = listOf(8.dp, 13.dp, 18.dp)
+        heights.forEachIndexed { index, h ->
+            val filled = index < level.coerceIn(0, 3)
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 2.dp)
+                    .size(width = 5.dp, height = h)
+                    .background(if (filled) Color.White else Color(0x55FFFFFF)),
+            )
         }
     }
 }

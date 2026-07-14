@@ -103,7 +103,12 @@ class CameraController(
             CameraSelector.LENS_FACING_BACK
         }
         PhotopultLog.i("switchLens -> $lensFacing")
-        bind()
+        rebind()
+    }
+
+    /** Re-bind the use cases on the main thread (safe to call from any thread). */
+    fun rebind() {
+        ContextCompat.getMainExecutor(context).execute { bind() }
     }
 
     fun imageCapture(): ImageCapture? = imageCapture
