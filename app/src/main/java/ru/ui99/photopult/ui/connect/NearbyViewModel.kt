@@ -105,8 +105,6 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
 
     fun switchCamera() = manager.sendCommand(RemoteCommand.SwitchCamera)
 
-    fun setBitrate(bps: Int) = cameraSession?.setBitrate(bps)
-
     fun previewFramesRendered(): Long = previewReceiver?.framesRendered ?: 0
     fun previewFramesDropped(): Long = previewReceiver?.framesDropped ?: 0
 
