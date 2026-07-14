@@ -12,9 +12,11 @@ local.properties
 captures/
 .cxx/
 
-# Signing — never commit keystores
+# Signing — never commit RELEASE keystores.
+# The debug keystore is intentionally committed (shared, non-secret) for stable debug signatures.
 *.jks
 *.keystore
+!app/debug.keystore
 
 # IDE
 .idea/
