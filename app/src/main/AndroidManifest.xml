@@ -56,6 +56,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Keeps the capture session alive in the background (Stage 6 wires up the logic). -->
+        <service
+            android:name=".camera.CaptureForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="camera" />
     </application>
 
 </manifest>

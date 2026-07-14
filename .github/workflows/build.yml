@@ -2,9 +2,12 @@ name: build
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - 'claude/**'
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 # Allow one run per ref; cancel superseded runs.
 concurrency:
