@@ -1,7 +1,7 @@
 package ru.ui99.photopult.net.nearby
 
 import android.content.Context
-import android.os.Build
+import android.os.BatteryManager
 import com.google.android.gms.nearby.Nearby
 import com.google.android.gms.nearby.connection.AdvertisingOptions
 import com.google.android.gms.nearby.connection.ConnectionInfo
@@ -18,7 +18,11 @@ import com.google.android.gms.nearby.connection.PayloadTransferUpdate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import ru.ui99.photopult.net.protocol.CameraEvent
+import ru.ui99.photopult.net.protocol.RemoteCommand
 import ru.ui99.photopult.net.protocol.Role
+import ru.ui99.photopult.net.protocol.Wire
+import ru.ui99.photopult.util.DeviceName
 import ru.ui99.photopult.util.PhotopultLog
 
 /**
@@ -31,15 +35,21 @@ import ru.ui99.photopult.util.PhotopultLog
  */
 class NearbyConnectionManager(context: Context) {
 
-    private val client: ConnectionsClient = Nearby.getConnectionsClient(context.applicationContext)
-    private val localName: String = (Build.MODEL ?: "Phone").take(40)
+    private val appContext: Context = context.applicationContext
+    private val client: ConnectionsClient = Nearby.getConnectionsClient(appContext)
+    private val localName: String = DeviceName.of(appContext)
 
     private val _state = MutableStateFlow<ConnectionState>(ConnectionState.Idle)
     val state: StateFlow<ConnectionState> = _state.asStateFlow()
 
+    /** Latest state reported by the camera (remote side only). Null until received. */
+    private val _peerState = MutableStateFlow<CameraEvent.State?>(null)
+    val peerState: StateFlow<CameraEvent.State?> = _peerState.asStateFlow()
+
     private var role: Role? = null
     private val discovered = linkedMapOf<String, DiscoveredEndpoint>()
     private var pending: ConnectionState.Confirming? = null
+    private var connectedEndpointId: String? = null
 
     fun start(role: Role) {
         this.role = role
@@ -114,6 +124,8 @@ class NearbyConnectionManager(context: Context) {
         client.stopAllEndpoints()
         discovered.clear()
         pending = null
+        connectedEndpointId = null
+        _peerState.value = null
         _state.value = ConnectionState.Idle
     }
 
@@ -176,9 +188,13 @@ class NearbyConnectionManager(context: Context) {
                     val peer = pending?.peerName ?: endpointId
                     PhotopultLog.i("onConnectionResult $endpointId OK — connected to $peer")
                     pending = null
+                    connectedEndpointId = endpointId
+                    _peerState.value = null
                     // Camera no longer needs to advertise once paired.
                     if (role == Role.CAMERA) client.stopAdvertising()
                     _state.value = ConnectionState.Connected(endpointId, peer)
+                    // Remote asks the camera for its state as soon as the link is up.
+                    if (role == Role.REMOTE) requestState()
                 }
                 ConnectionsStatusCodes.STATUS_CONNECTION_REJECTED -> {
                     PhotopultLog.w("onConnectionResult $endpointId REJECTED")
@@ -197,6 +213,8 @@ class NearbyConnectionManager(context: Context) {
         override fun onDisconnected(endpointId: String) {
             PhotopultLog.w("onDisconnected $endpointId — returning to search")
             pending = null
+            connectedEndpointId = null
+            _peerState.value = null
             // Full auto-reconnect with state restore comes in iteration (d).
             restartDiscoveryOrAdvertising()
         }
@@ -204,12 +222,74 @@ class NearbyConnectionManager(context: Context) {
 
     private val payloadCallback = object : PayloadCallback() {
         override fun onPayloadReceived(endpointId: String, payload: Payload) {
-            // getState/state exchange arrives in iteration (b); log for now.
-            PhotopultLog.d("onPayloadReceived from $endpointId type=${payload.type}")
+            if (payload.type != Payload.Type.BYTES) {
+                PhotopultLog.d("onPayloadReceived from $endpointId type=${payload.type} (ignored)")
+                return
+            }
+            val bytes = payload.asBytes() ?: return
+            when (role) {
+                Role.CAMERA -> handleCommand(endpointId, bytes)
+                Role.REMOTE -> handleEvent(endpointId, bytes)
+                null -> Unit
+            }
         }
 
         override fun onPayloadTransferUpdate(endpointId: String, update: PayloadTransferUpdate) {
-            // No-op until iteration (b).
+            // Relevant for STREAM/FILE payloads in later stages; BYTES arrive whole.
         }
+    }
+
+    /** Remote → camera: ask for the current state. */
+    fun requestState() {
+        val id = connectedEndpointId ?: return
+        PhotopultLog.i("send getState -> $id")
+        send(id, Wire.encode(RemoteCommand.GetState))
+    }
+
+    private fun handleCommand(endpointId: String, bytes: ByteArray) {
+        val command = runCatching { Wire.decodeCommand(bytes) }.getOrElse { e ->
+            PhotopultLog.e("bad command from $endpointId", e); return
+        }
+        PhotopultLog.i("recv command $command from $endpointId")
+        when (command) {
+            RemoteCommand.GetState -> {
+                val state = currentCameraState()
+                PhotopultLog.i("send state -> $endpointId battery=${state.battery}")
+                send(endpointId, Wire.encode(state))
+            }
+        }
+    }
+
+    private fun handleEvent(endpointId: String, bytes: ByteArray) {
+        val event = runCatching { Wire.decodeEvent(bytes) }.getOrElse { e ->
+            PhotopultLog.e("bad event from $endpointId", e); return
+        }
+        when (event) {
+            is CameraEvent.State -> {
+                PhotopultLog.i("recv state from $endpointId battery=${event.battery}")
+                _peerState.value = event
+            }
+        }
+    }
+
+    private fun send(endpointId: String, bytes: ByteArray) {
+        client.sendPayload(endpointId, Payload.fromBytes(bytes))
+            .addOnFailureListener { e -> PhotopultLog.e("sendPayload failed", e) }
+    }
+
+    /** Camera's current state. Only battery is live until CameraX lands in Stage 3. */
+    private fun currentCameraState(): CameraEvent.State {
+        val battery = runCatching {
+            val bm = appContext.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
+            bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)?.coerceIn(0, 100) ?: -1
+        }.getOrDefault(-1)
+        return CameraEvent.State(
+            battery = battery,
+            flash = "off",
+            lens = "back",
+            zoomRatio = 1f,
+            maxZoom = 1f,
+            resolution = "—",
+        )
     }
 }

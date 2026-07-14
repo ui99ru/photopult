@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ru.ui99.photopult.R
 import ru.ui99.photopult.net.nearby.ConnectionState
+import ru.ui99.photopult.net.protocol.CameraEvent
 import ru.ui99.photopult.net.protocol.Role
 import ru.ui99.photopult.ui.common.ScreenScaffold
 
@@ -39,6 +40,7 @@ fun ConnectionScreen(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsState()
+    val peerState by viewModel.peerState.collectAsState()
 
     LaunchedEffect(role) { viewModel.start(role) }
 
@@ -50,7 +52,12 @@ fun ConnectionScreen(
                 onReject = viewModel::reject,
             )
 
-            is ConnectionState.Connected -> ConnectedContent(peerName = s.peerName)
+            is ConnectionState.Connected -> ConnectedContent(
+                role = role,
+                peerName = s.peerName,
+                peerState = peerState,
+                onRefresh = viewModel::requestState,
+            )
 
             is ConnectionState.Failed -> FailedContent(
                 message = s.userMessage,
@@ -178,7 +185,12 @@ private fun ConfirmContent(
 }
 
 @Composable
-private fun ConnectedContent(peerName: String) {
+private fun ConnectedContent(
+    role: Role,
+    peerName: String,
+    peerState: CameraEvent.State?,
+    onRefresh: () -> Unit,
+) {
     Text(
         text = stringResource(R.string.connect_connected_title),
         style = MaterialTheme.typography.headlineLarge,
@@ -192,6 +204,63 @@ private fun ConnectedContent(peerName: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 12.dp),
     )
+
+    when (role) {
+        Role.CAMERA -> Text(
+            text = stringResource(R.string.connected_camera_note),
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 20.dp),
+        )
+
+        Role.REMOTE -> RemoteStatePanel(peerState = peerState, onRefresh = onRefresh)
+    }
+}
+
+@Composable
+private fun RemoteStatePanel(peerState: CameraEvent.State?, onRefresh: () -> Unit) {
+    Spacer(Modifier.height(24.dp))
+    if (peerState == null) {
+        Text(
+            text = stringResource(R.string.state_waiting),
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    } else {
+        val battery = if (peerState.battery in 0..100) {
+            stringResource(R.string.state_battery, peerState.battery)
+        } else {
+            stringResource(R.string.state_battery_unknown)
+        }
+        Text(
+            text = battery,
+            style = MaterialTheme.typography.titleLarge,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = stringResource(R.string.state_flash, peerState.flash) + "   " +
+                stringResource(R.string.state_lens, peerState.lens) + "   " +
+                stringResource(R.string.state_zoom, peerState.zoomRatio.toString()),
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        Text(
+            text = stringResource(R.string.state_placeholder_note),
+            style = MaterialTheme.typography.labelLarge,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+    Spacer(Modifier.height(16.dp))
+    Button(onClick = onRefresh, modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.state_refresh))
+    }
 }
 
 @Composable

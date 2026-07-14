@@ -45,6 +45,17 @@
     <string name="connect_connected_to">Телефон: %1$s</string>
     <string name="connect_failed_title">Не удалось подключиться</string>
     <string name="connect_retry">Попробовать снова</string>
+    <string name="connected_camera_note">Пульт подключён</string>
+
+    <!-- Camera state on the remote (Stage 2b) -->
+    <string name="state_waiting">Запрашиваю состояние камеры…</string>
+    <string name="state_battery">Батарея камеры: %1$d%%</string>
+    <string name="state_battery_unknown">Батарея камеры: неизвестно</string>
+    <string name="state_flash">Вспышка: %1$s</string>
+    <string name="state_lens">Камера: %1$s</string>
+    <string name="state_zoom">Зум: %1$s</string>
+    <string name="state_placeholder_note">Зум/вспышка/камера — заглушки до этапа съёмки</string>
+    <string name="state_refresh">Обновить состояние</string>
 
     <!-- Version + hidden debug screen -->
     <string name="version_label">Фотопульт v%1$s</string>
@@ -54,4 +65,10 @@
     <string name="debug_events">События: %1$d</string>
     <string name="debug_clear">Очистить</string>
     <string name="debug_empty">Событий пока нет</string>
+    <string name="debug_state_idle">Простаивает</string>
+    <string name="debug_state_advertising">Виден как %1$s</string>
+    <string name="debug_state_discovering">Поиск (найдено: %1$d)</string>
+    <string name="debug_state_confirming">Подтверждение %1$s, код %2$s</string>
+    <string name="debug_state_connected">Подключено к %1$s</string>
+    <string name="debug_state_failed">Ошибка: %1$s</string>
 </resources>

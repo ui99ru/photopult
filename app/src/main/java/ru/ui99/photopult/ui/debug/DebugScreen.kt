@@ -70,7 +70,7 @@ fun DebugScreen(
             modifier = Modifier.padding(bottom = 8.dp),
         )
         Text(
-            text = stringResource(R.string.debug_state, describe(state)),
+            text = stringResource(R.string.debug_state, stateLabel(state)),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(bottom = 8.dp),
@@ -120,11 +120,14 @@ private fun LogRow(entry: LogEntry, time: String) {
     )
 }
 
-private fun describe(state: ConnectionState): String = when (state) {
-    ConnectionState.Idle -> "Idle"
-    is ConnectionState.Advertising -> "Advertising as ${state.localName}"
-    is ConnectionState.Discovering -> "Discovering (${state.endpoints.size} found)"
-    is ConnectionState.Confirming -> "Confirming ${state.peerName} code=${state.code}"
-    is ConnectionState.Connected -> "Connected to ${state.peerName}"
-    is ConnectionState.Failed -> "Failed: ${state.userMessage}"
+@Composable
+private fun stateLabel(state: ConnectionState): String = when (state) {
+    ConnectionState.Idle -> stringResource(R.string.debug_state_idle)
+    is ConnectionState.Advertising -> stringResource(R.string.debug_state_advertising, state.localName)
+    is ConnectionState.Discovering ->
+        stringResource(R.string.debug_state_discovering, state.endpoints.size)
+    is ConnectionState.Confirming ->
+        stringResource(R.string.debug_state_confirming, state.peerName, state.code)
+    is ConnectionState.Connected -> stringResource(R.string.debug_state_connected, state.peerName)
+    is ConnectionState.Failed -> stringResource(R.string.debug_state_failed, state.userMessage)
 }

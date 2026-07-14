@@ -45,6 +45,17 @@
     <string name="connect_connected_to">Phone: %1$s</string>
     <string name="connect_failed_title">Couldn\'t connect</string>
     <string name="connect_retry">Try again</string>
+    <string name="connected_camera_note">Remote connected</string>
+
+    <!-- Camera state on the remote (Stage 2b) -->
+    <string name="state_waiting">Requesting camera state…</string>
+    <string name="state_battery">Camera battery: %1$d%%</string>
+    <string name="state_battery_unknown">Camera battery: unknown</string>
+    <string name="state_flash">Flash: %1$s</string>
+    <string name="state_lens">Camera: %1$s</string>
+    <string name="state_zoom">Zoom: %1$s</string>
+    <string name="state_placeholder_note">Zoom/flash/camera are placeholders until the capture stage</string>
+    <string name="state_refresh">Refresh state</string>
 
     <!-- Version + hidden debug screen -->
     <string name="version_label">Photopult v%1$s</string>
@@ -54,4 +65,10 @@
     <string name="debug_events">Events: %1$d</string>
     <string name="debug_clear">Clear</string>
     <string name="debug_empty">No events yet</string>
+    <string name="debug_state_idle">Idle</string>
+    <string name="debug_state_advertising">Visible as %1$s</string>
+    <string name="debug_state_discovering">Discovering (found: %1$d)</string>
+    <string name="debug_state_confirming">Confirming %1$s, code %2$s</string>
+    <string name="debug_state_connected">Connected to %1$s</string>
+    <string name="debug_state_failed">Error: %1$s</string>
 </resources>

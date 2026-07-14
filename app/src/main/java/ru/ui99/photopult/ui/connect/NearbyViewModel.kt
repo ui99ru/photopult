@@ -18,6 +18,7 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
 
     private val manager = NearbyConnectionManager(application)
     val state = manager.state
+    val peerState = manager.peerState
 
     private var started = false
 
@@ -34,6 +35,8 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun connectTo(endpointId: String) = manager.connectTo(endpointId)
+
+    fun requestState() = manager.requestState()
 
     fun confirm() = manager.confirm()
 
