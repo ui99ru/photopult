@@ -2,7 +2,7 @@
 <!--
   Foreground: white camera lens inside a joystick ring with four arrows.
   Viewport 108×108, centre (54,54). All content inside the 66dp safe zone (radius 33);
-  the furthest points are the arrow tips at radius 32. Rings use fillType="evenodd".
+  the furthest points are the arrow tips at radius 32. Rings use fillType="evenOdd".
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -13,7 +13,7 @@
     <!-- Joystick ring (outer): annulus, outer r=24, inner r=18. -->
     <path
         android:fillColor="#FFFFFF"
-        android:fillType="evenodd"
+        android:fillType="evenOdd"
         android:pathData="M30,54 a24,24 0 1,0 48,0 a24,24 0 1,0 -48,0 Z
                           M36,54 a18,18 0 1,0 36,0 a18,18 0 1,0 -36,0 Z" />
 
@@ -28,14 +28,14 @@
     <!-- Lens barrel ring: annulus, outer r=12, inner r=9. -->
     <path
         android:fillColor="#FFFFFF"
-        android:fillType="evenodd"
+        android:fillType="evenOdd"
         android:pathData="M42,54 a12,12 0 1,0 24,0 a12,12 0 1,0 -24,0 Z
                           M45,54 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0 Z" />
 
-    <!-- Iris: white disc r=6 with a pupil hole r=2.8 (evenodd). -->
+    <!-- Iris: white disc r=6 with a pupil hole r=2.8 (evenOdd). -->
     <path
         android:fillColor="#FFFFFF"
-        android:fillType="evenodd"
+        android:fillType="evenOdd"
         android:pathData="M48,54 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 Z
                           M51.2,54 a2.8,2.8 0 1,0 5.6,0 a2.8,2.8 0 1,0 -5.6,0 Z" />
 
