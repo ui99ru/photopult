@@ -29,8 +29,29 @@
     <string name="gms_update_title">Обновите сервисы Google Play</string>
     <string name="gms_update_body">Чтобы приложение заработало, обновите сервисы Google Play.</string>
 
-    <!-- Placeholder screens (filled in on later stages) -->
-    <string name="camera_role_placeholder">Режим камеры появится на следующем этапе</string>
-    <string name="remote_role_placeholder">Режим пульта появится на следующем этапе</string>
     <string name="action_back">Назад</string>
+
+    <!-- Connection (Stage 2) -->
+    <string name="connect_camera_searching">Жду пульт…</string>
+    <string name="connect_camera_name">Эта камера: %1$s</string>
+    <string name="connect_camera_hint">Откройте приложение на втором телефоне и выберите «пульт»</string>
+    <string name="connect_remote_searching">Ищу камеры рядом…</string>
+    <string name="connect_remote_found_title">Найденные камеры</string>
+    <string name="confirm_title">Это ваша пара?</string>
+    <string name="confirm_body">Проверьте, что на обоих телефонах одинаковые значки и цифры</string>
+    <string name="confirm_yes">Да, это он</string>
+    <string name="confirm_no">Нет</string>
+    <string name="connect_connected_title">Подключено ✅</string>
+    <string name="connect_connected_to">Телефон: %1$s</string>
+    <string name="connect_failed_title">Не удалось подключиться</string>
+    <string name="connect_retry">Попробовать снова</string>
+
+    <!-- Version + hidden debug screen -->
+    <string name="version_label">Фотопульт v%1$s</string>
+    <string name="debug_open">Отладка</string>
+    <string name="debug_title">Отладка соединения</string>
+    <string name="debug_state">Состояние: %1$s</string>
+    <string name="debug_events">События: %1$d</string>
+    <string name="debug_clear">Очистить</string>
+    <string name="debug_empty">Событий пока нет</string>
 </resources>
