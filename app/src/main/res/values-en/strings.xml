@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App -->
+    <string name="app_name">Photopult</string>
+
+    <!-- Role selection -->
+    <string name="role_title">How will you use this phone?</string>
+    <string name="role_subtitle">One phone takes the photo, the other controls it from a distance</string>
+    <string name="role_camera_title">📷 This phone is the camera</string>
+    <string name="role_camera_desc">Put it on a tripod — it becomes the camera</string>
+    <string name="role_remote_title">🎮 This phone is the remote</string>
+    <string name="role_remote_desc">Control the camera: preview, zoom, shutter</string>
+
+    <!-- Permissions onboarding -->
+    <string name="perm_title">A few permissions are needed</string>
+    <string name="perm_intro">So the phones can find each other and take photos, the app needs access. Nothing is sent anywhere — everything works offline.</string>
+    <string name="perm_camera">Camera — to take photos</string>
+    <string name="perm_nearby">Bluetooth and Wi-Fi — so the other phone can find this one without internet or a router</string>
+    <string name="perm_location">Location — the system requires it to find nearby devices (your coordinates are never used)</string>
+    <string name="perm_grant">Allow</string>
+    <string name="perm_denied_title">It won\'t work without access</string>
+    <string name="perm_denied_body">The app can\'t connect the phones until you grant access. Open settings and allow the required items.</string>
+    <string name="perm_open_settings">Open settings</string>
+    <string name="perm_retry">Try again</string>
+
+    <!-- Google Play Services availability -->
+    <string name="gms_missing_title">This phone isn\'t supported</string>
+    <string name="gms_missing_body">Connecting without internet needs Google Play services, which this device doesn\'t have. Unfortunately the app can\'t work here.</string>
+    <string name="gms_update_title">Update Google Play services</string>
+    <string name="gms_update_body">Please update Google Play services so the app can work.</string>
+
+    <!-- Placeholder screens (filled in on later stages) -->
+    <string name="camera_role_placeholder">Camera mode arrives in the next stage</string>
+    <string name="remote_role_placeholder">Remote mode arrives in the next stage</string>
+    <string name="action_back">Back</string>
+</resources>

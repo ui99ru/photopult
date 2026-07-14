@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App -->
+    <string name="app_name">Фотопульт</string>
+
+    <!-- Role selection -->
+    <string name="role_title">Как использовать этот телефон?</string>
+    <string name="role_subtitle">Один телефон снимает, второй управляет им на расстоянии</string>
+    <string name="role_camera_title">📷 Этот телефон снимает</string>
+    <string name="role_camera_desc">Поставьте на штатив — он станет камерой</string>
+    <string name="role_remote_title">🎮 Этот телефон — пульт</string>
+    <string name="role_remote_desc">Управляйте камерой: превью, зум, спуск</string>
+
+    <!-- Permissions onboarding -->
+    <string name="perm_title">Нужно несколько разрешений</string>
+    <string name="perm_intro">Чтобы телефоны видели друг друга и снимали, приложению нужен доступ. Данные никуда не отправляются — всё работает офлайн.</string>
+    <string name="perm_camera">Камера — чтобы делать снимки</string>
+    <string name="perm_nearby">Bluetooth и Wi-Fi — чтобы второй телефон нашёл этот без интернета и роутера</string>
+    <string name="perm_location">Местоположение — этого требует система для поиска устройств рядом (координаты не используются)</string>
+    <string name="perm_grant">Разрешить</string>
+    <string name="perm_denied_title">Без доступа не получится</string>
+    <string name="perm_denied_body">Приложение не сможет соединить телефоны, пока вы не дадите доступ. Откройте настройки и разрешите нужные пункты.</string>
+    <string name="perm_open_settings">Открыть настройки</string>
+    <string name="perm_retry">Попробовать снова</string>
+
+    <!-- Google Play Services availability -->
+    <string name="gms_missing_title">Телефон не поддерживается</string>
+    <string name="gms_missing_body">Для связи без интернета нужны сервисы Google Play, а на этом устройстве их нет. К сожалению, приложение здесь работать не сможет.</string>
+    <string name="gms_update_title">Обновите сервисы Google Play</string>
+    <string name="gms_update_body">Чтобы приложение заработало, обновите сервисы Google Play.</string>
+
+    <!-- Placeholder screens (filled in on later stages) -->
+    <string name="camera_role_placeholder">Режим камеры появится на следующем этапе</string>
+    <string name="remote_role_placeholder">Режим пульта появится на следующем этапе</string>
+    <string name="action_back">Назад</string>
+</resources>
