@@ -17,6 +17,14 @@ sealed interface RemoteCommand {
     @Serializable
     @SerialName("getState")
     data object GetState : RemoteCommand
+
+    @Serializable
+    @SerialName("zoom")
+    data class Zoom(val ratio: Float) : RemoteCommand
+
+    @Serializable
+    @SerialName("switchCamera")
+    data object SwitchCamera : RemoteCommand
 }
 
 /** Camera → remote. */

@@ -2,6 +2,7 @@ package ru.ui99.photopult.net.nearby
 
 import android.content.Context
 import android.os.BatteryManager
+import android.os.ParcelFileDescriptor
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.nearby.Nearby
 import com.google.android.gms.nearby.connection.AdvertisingOptions
@@ -22,6 +23,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.io.InputStream
+import java.io.OutputStream
 import kotlinx.coroutines.launch
 import ru.ui99.photopult.net.protocol.CameraEvent
 import ru.ui99.photopult.net.protocol.RemoteCommand
@@ -100,6 +103,12 @@ class NearbyConnectionManager(
     // Auto-reconnect after an unexpected drop of a live session.
     private var reconnecting = false
     private var heartbeatJob: Job? = null
+
+    /** Camera side: receives decoded remote commands (set by the camera session). */
+    var commandListener: ((RemoteCommand) -> Unit)? = null
+
+    /** Remote side: receives the incoming preview STREAM (set by the remote session). */
+    var streamListener: ((InputStream) -> Unit)? = null
 
     fun start(role: Role) {
         this.role = role
@@ -445,15 +454,23 @@ class NearbyConnectionManager(
 
     private val payloadCallback = object : PayloadCallback() {
         override fun onPayloadReceived(endpointId: String, payload: Payload) {
-            if (payload.type != Payload.Type.BYTES) {
-                PhotopultLog.d("onPayloadReceived from $endpointId type=${payload.type} (ignored)")
-                return
-            }
-            val bytes = payload.asBytes() ?: return
-            when (role) {
-                Role.CAMERA -> handleCommand(endpointId, bytes)
-                Role.REMOTE -> handleEvent(endpointId, bytes)
-                null -> Unit
+            when (payload.type) {
+                Payload.Type.STREAM -> {
+                    val stream = payload.asStream()?.asInputStream()
+                    if (stream != null) {
+                        PhotopultLog.i("incoming STREAM payload ${payload.id}")
+                        streamListener?.invoke(stream)
+                    }
+                }
+                Payload.Type.BYTES -> {
+                    val bytes = payload.asBytes() ?: return
+                    when (role) {
+                        Role.CAMERA -> handleCommand(endpointId, bytes)
+                        Role.REMOTE -> handleEvent(endpointId, bytes)
+                        null -> Unit
+                    }
+                }
+                else -> PhotopultLog.d("onPayloadReceived $endpointId type=${payload.type} (ignored)")
             }
         }
 
@@ -489,13 +506,38 @@ class NearbyConnectionManager(
             PhotopultLog.e("bad command from $endpointId", e); return
         }
         PhotopultLog.i("recv command $command from $endpointId")
-        when (command) {
-            RemoteCommand.GetState -> {
-                val state = currentCameraState()
-                PhotopultLog.i("send state -> $endpointId battery=${state.battery}")
-                send(endpointId, Wire.encode(state))
-            }
+        val listener = commandListener
+        if (listener != null) {
+            listener(command)
+            return
         }
+        // Fallback when no camera session is wired: answer getState with battery only.
+        if (command is RemoteCommand.GetState) {
+            send(endpointId, Wire.encode(currentCameraState()))
+        }
+    }
+
+    /** Send an event (camera → remote) or command (remote → camera) on the BYTES channel. */
+    fun sendEvent(event: CameraEvent) {
+        connectedEndpointId?.let { send(it, Wire.encode(event)) }
+    }
+
+    fun sendCommand(command: RemoteCommand) {
+        connectedEndpointId?.let { send(it, Wire.encode(command)) }
+    }
+
+    /**
+     * Camera side: open an outgoing preview STREAM to the connected remote. Returns the write end
+     * to which framed H.264 is written, or null if not connected.
+     */
+    fun openOutgoingStream(): OutputStream? {
+        val endpointId = connectedEndpointId ?: return null
+        val pipe = ParcelFileDescriptor.createPipe()
+        val payload = Payload.fromStream(pipe[0])
+        client.sendPayload(endpointId, payload)
+            .addOnFailureListener { PhotopultLog.e("sendPayload(stream) failed", it) }
+        PhotopultLog.i("opened outgoing STREAM payload ${payload.id}")
+        return ParcelFileDescriptor.AutoCloseOutputStream(pipe[1])
     }
 
     private fun handleEvent(endpointId: String, bytes: ByteArray) {
