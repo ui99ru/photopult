@@ -2,6 +2,7 @@ package ru.ui99.photopult.ui.connect
 
 import android.app.Application
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.view.Surface
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
@@ -54,6 +55,16 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
     val cameraCountdown: StateFlow<Int?> = _cameraCountdown.asStateFlow()
     private val _snapFlash = MutableStateFlow(0)
     val snapFlash: StateFlow<Int> = _snapFlash.asStateFlow()
+
+    /** Last photo taken (for the camera screen's gallery thumbnail). */
+    data class LastPhoto(val uri: Uri?, val thumbnailBase64: String)
+    private val _cameraLastPhoto = MutableStateFlow<LastPhoto?>(null)
+    val cameraLastPhoto: StateFlow<LastPhoto?> = _cameraLastPhoto.asStateFlow()
+
+    /** Local preview orientation/size on the camera device (null until streaming). */
+    private val _cameraStreamConfig = MutableStateFlow<ru.ui99.photopult.net.protocol.CameraEvent.StreamConfig?>(null)
+    val cameraStreamConfig: StateFlow<ru.ui99.photopult.net.protocol.CameraEvent.StreamConfig?> =
+        _cameraStreamConfig.asStateFlow()
 
     // Remote-side capture results + feedback.
     private val _receivedPhotos = MutableStateFlow<List<CaptureReceiver.ReceivedPhoto>>(emptyList())
@@ -110,7 +121,7 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
     /** Camera role: start capturing and streaming to the connected remote. */
     fun startCameraSession(lifecycleOwner: LifecycleOwner, deviceRotationProvider: () -> Int) {
         if (cameraSession != null) return
-        cameraSession = CameraSession(
+        val session = CameraSession(
             context = getApplication<Application>(),
             lifecycleOwner = lifecycleOwner,
             manager = manager,
@@ -118,8 +129,17 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
             transferQueue = transferQueue,
             onCountdown = { _cameraCountdown.value = it },
             onSnapped = { _snapFlash.value++ },
-        ).also { it.start() }
+            onPhotoSaved = { uri, thumb -> _cameraLastPhoto.value = LastPhoto(uri, thumb) },
+        )
+        cameraSession = session
+        session.start()
+        viewModelScope.launch {
+            session.localConfig.collect { _cameraStreamConfig.value = it }
+        }
     }
+
+    /** Camera screen: attach the TextureView surface for the on-device preview. */
+    fun setLocalPreviewSurface(surface: Surface?) = cameraSession?.setLocalPreviewSurface(surface)
 
     /** Remote role: start receiving/decoding the preview + capture results. */
     fun startPreviewReceiver() {

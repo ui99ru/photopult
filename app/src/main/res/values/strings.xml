@@ -58,6 +58,7 @@
     <string name="remote_switch_camera_short">Камера ⇄</string>
     <string name="remote_grid">Сетка</string>
     <string name="remote_battery_low">Низкий заряд камеры</string>
+    <string name="gallery_open">Открыть в галерее</string>
     <string name="snapped">Снято!</string>
     <string name="timer_now">Сразу</string>
     <string name="timer_sec">%1$d с</string>

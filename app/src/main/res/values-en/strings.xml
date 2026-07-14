@@ -58,6 +58,7 @@
     <string name="remote_switch_camera_short">Camera ⇄</string>
     <string name="remote_grid">Grid</string>
     <string name="remote_battery_low">Camera battery low</string>
+    <string name="gallery_open">Open in gallery</string>
     <string name="snapped">Got it!</string>
     <string name="timer_now">Now</string>
     <string name="timer_sec">%1$d s</string>

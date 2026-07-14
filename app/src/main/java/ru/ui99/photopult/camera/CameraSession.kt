@@ -1,7 +1,9 @@
 package ru.ui99.photopult.camera
 
 import android.content.Context
+import android.net.Uri
 import android.os.BatteryManager
+import android.view.Surface
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
@@ -10,6 +12,9 @@ import androidx.lifecycle.LifecycleOwner
 import com.google.android.gms.nearby.connection.PayloadTransferUpdate
 import java.io.File
 import java.io.OutputStream
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -26,6 +31,7 @@ import kotlinx.coroutines.launch
 import ru.ui99.photopult.codec.AdaptiveController
 import ru.ui99.photopult.codec.BitrateLadder
 import ru.ui99.photopult.codec.H264Encoder
+import ru.ui99.photopult.codec.LocalPreview
 import ru.ui99.photopult.codec.StreamFraming
 import ru.ui99.photopult.net.nearby.NearbyConnectionManager
 import ru.ui99.photopult.net.protocol.CameraEvent
@@ -46,6 +52,7 @@ class CameraSession(
     private val transferQueue: TransferQueue,
     private val onCountdown: (Int?) -> Unit = {},
     private val onSnapped: () -> Unit = {},
+    private val onPhotoSaved: (Uri?, String) -> Unit = { _, _ -> },
 ) {
     private companion object {
         const val FPS = 30
@@ -70,6 +77,12 @@ class CameraSession(
     private var lastLevel = 3
     private val payloadToPhoto = HashMap<Long, String>()
 
+    // On-device preview: decode the frames we're streaming and show them on the camera screen.
+    private val localPreview = LocalPreview()
+    private val _localConfig = MutableStateFlow<CameraEvent.StreamConfig?>(null)
+    /** Orientation/size of the local preview, for aspect-fit on the camera screen. */
+    val localConfig: StateFlow<CameraEvent.StreamConfig?> = _localConfig.asStateFlow()
+
     @Volatile private var streamOut: OutputStream? = null
 
     fun start() {
@@ -89,7 +102,10 @@ class CameraSession(
     }
 
     private fun startEncoder(rung: BitrateLadder.Rung) {
+        localPreview.setResolution(rung.width, rung.height)
         val enc = H264Encoder(rung.width, rung.height, rung.bitrate, FPS, GOP_SECONDS) { data, pts, key, config ->
+            // Show the same frames locally on the camera screen (fresh array per callback — safe to hold).
+            localPreview.submit(StreamFraming.Frame(pts, key, config, data))
             val out = streamOut ?: return@H264Encoder
             val start = System.nanoTime()
             try {
@@ -104,6 +120,9 @@ class CameraSession(
         enc.start()
         encoder = enc
     }
+
+    /** Camera screen supplies the Surface for the on-device preview. */
+    fun setLocalPreviewSurface(surface: Surface?) = localPreview.setSurface(surface)
 
     private fun encoderSurfaceProvider() = Preview.SurfaceProvider { request ->
         val surface = encoder?.inputSurface
@@ -158,15 +177,15 @@ class CameraSession(
             deviceRotation = deviceRotationProvider(),
             front = controller.isFront(),
         )
-        manager.sendEvent(
-            CameraEvent.StreamConfig(
-                width = currentRung.width,
-                height = currentRung.height,
-                rotationDegrees = rotation,
-                mirrored = PreviewOrientation.isMirrored(controller.isFront()),
-                fps = FPS,
-            ),
+        val config = CameraEvent.StreamConfig(
+            width = currentRung.width,
+            height = currentRung.height,
+            rotationDegrees = rotation,
+            mirrored = PreviewOrientation.isMirrored(controller.isFront()),
+            fps = FPS,
         )
+        _localConfig.value = config
+        manager.sendEvent(config)
         sendState()
         encoder?.requestKeyframe()
     }
@@ -266,12 +285,14 @@ class CameraSession(
         val photoId = newPhotoId()
         val displayName = "Photopult_$photoId.jpg"
         PhotopultLog.i("captured $photoId (${bytes.size} bytes)")
+        val thumbnail = PhotoStorage.makeThumbnailBase64(bytes)
         // Camera keeps its full-quality copy.
-        PhotoStorage.saveJpegToGallery(context, bytes, displayName)
+        val savedUri = PhotoStorage.saveJpegToGallery(context, bytes, displayName)
         // Instant thumbnail + done event to the remote.
-        manager.sendEvent(CameraEvent.Thumbnail(photoId, PhotoStorage.makeThumbnailBase64(bytes)))
+        manager.sendEvent(CameraEvent.Thumbnail(photoId, thumbnail))
         manager.sendEvent(CameraEvent.CaptureDone(true, photoId))
         onSnapped()
+        onPhotoSaved(savedUri, thumbnail)
         // Queue the full file for background transfer (survives reconnect).
         val cacheFile = PhotoStorage.writeCacheFile(context, bytes, "$photoId.jpg")
         transferQueue.add(photoId, cacheFile.absolutePath)
@@ -345,6 +366,8 @@ class CameraSession(
         monitorJob?.cancel()
         scope.cancel()
         controller.stop()
+        localPreview.stop()
+        _localConfig.value = null
         encoder?.stop()
         encoder = null
         runCatching { streamOut?.close() }

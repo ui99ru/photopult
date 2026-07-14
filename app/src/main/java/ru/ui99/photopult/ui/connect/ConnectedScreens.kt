@@ -1,8 +1,11 @@
 package ru.ui99.photopult.ui.connect
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.graphics.SurfaceTexture
+import android.net.Uri
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -14,6 +17,7 @@ import android.view.WindowManager
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -32,9 +36,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,6 +52,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -58,7 +61,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
@@ -69,9 +71,9 @@ import ru.ui99.photopult.net.protocol.CameraEvent
 import ru.ui99.photopult.net.transfer.CaptureReceiver
 
 /**
- * Camera role, connected: the operator frames via the remote, so this screen just shows status,
- * offers a battery-saving dim mode, and keeps the session alive. The CameraSession (CameraX +
- * encoder + STREAM) runs for as long as this composable is on screen.
+ * Camera role, connected: shows the live on-device preview (decoded from the frames we stream), a
+ * gallery shortcut, a battery-saving dim mode, and keeps the session alive. The CameraSession
+ * (CameraX + encoder + STREAM) runs for as long as this composable is on screen.
  */
 @Composable
 fun CameraConnectedScreen(
@@ -86,14 +88,17 @@ fun CameraConnectedScreen(
     var dimmed by remember { mutableStateOf(false) }
     val countdown by viewModel.cameraCountdown.collectAsState()
     val snapFlash by viewModel.snapFlash.collectAsState()
+    val config by viewModel.cameraStreamConfig.collectAsState()
+    val lastPhoto by viewModel.cameraLastPhoto.collectAsState()
 
     DisposableEffect(Unit) {
         viewModel.startCameraSession(lifecycleOwner) { deviceRotationDegrees(context) }
         onDispose { viewModel.stopSessions() }
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
         if (dimmed) {
+            // Preview is not composed here, so its decoder stops — saving battery on the tripod.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -109,35 +114,63 @@ fun CameraConnectedScreen(
                 )
             }
         } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-                    .safeDrawingPadding()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Text("📷", style = MaterialTheme.typography.headlineLarge)
+            StreamPreview(
+                config = config,
+                onSurface = { viewModel.setLocalPreviewSurface(it) },
+                modifier = Modifier.fillMaxSize(),
+            )
+
+            if (config == null) {
                 Text(
                     text = stringResource(R.string.camera_on_air_title),
                     style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(top = 12.dp),
+                    color = Color.White,
+                    modifier = Modifier.align(Alignment.Center),
                 )
-                Text(
-                    text = stringResource(R.string.camera_on_air_hint),
-                    style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp, bottom = 28.dp),
-                )
-                Button(onClick = { dimmed = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.camera_dim))
+            }
+
+            // Top status chip.
+            Text(
+                text = stringResource(R.string.camera_on_air_title),
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .safeDrawingPadding()
+                    .padding(16.dp)
+                    .background(Color(0x66000000), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
+
+            // Bottom bar: gallery shortcut + session controls.
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .safeDrawingPadding()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    GalleryThumb(
+                        thumbnailBase64 = lastPhoto?.thumbnailBase64,
+                        onClick = { openPhotoInGallery(context, lastPhoto?.uri) },
+                    )
+                    Spacer(Modifier.width(16.dp))
+                    IconToggle(
+                        label = stringResource(R.string.camera_dim),
+                        active = false,
+                        onClick = { dimmed = true },
+                    )
                 }
-                TextButton(onClick = onOpenDebug) { Text(stringResource(R.string.debug_open)) }
-                TextButton(onClick = onForget) { Text(stringResource(R.string.pair_forget)) }
-                TextButton(onClick = onBack) { Text(stringResource(R.string.camera_disconnect)) }
+                Row(horizontalArrangement = Arrangement.Center) {
+                    TextButton(onClick = onOpenDebug) { Text(stringResource(R.string.debug_open)) }
+                    TextButton(onClick = onForget) { Text(stringResource(R.string.pair_forget)) }
+                    TextButton(onClick = onBack) { Text(stringResource(R.string.camera_disconnect)) }
+                }
             }
         }
 
@@ -185,30 +218,10 @@ fun RemoteConnectedScreen(
     }
 
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
-        AndroidView(
-            factory = { ctx ->
-                TextureView(ctx).apply {
-                    surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                        override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
-                            viewModel.setPreviewSurface(Surface(st))
-                        }
-
-                        override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
-                            viewModel.setPreviewSurface(null)
-                            return true
-                        }
-
-                        override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) = Unit
-                        override fun onSurfaceTextureUpdated(st: SurfaceTexture) = Unit
-                    }
-                }
-            },
-            update = { view ->
-                streamConfig?.let { config ->
-                    view.rotation = config.rotationDegrees.toFloat()
-                    view.scaleX = if (config.mirrored) -1f else 1f
-                }
-            },
+        // Aspect-fit preview (letterboxed), rotation + mirror applied via the TextureView matrix.
+        StreamPreview(
+            config = streamConfig,
+            onSurface = { viewModel.setPreviewSurface(it) },
             modifier = Modifier.fillMaxSize(),
         )
 
@@ -287,6 +300,34 @@ fun RemoteConnectedScreen(
             }
         }
 
+        // Mode toggles live up top, well away from the shutter, so a missed shutter tap can't
+        // flip the camera mid-shot.
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .safeDrawingPadding()
+                .padding(top = 56.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            FlashButton(
+                mode = peerState?.flash ?: "off",
+                onCycle = { viewModel.setFlash(nextFlashMode(peerState?.flash ?: "off")) },
+            )
+            Spacer(Modifier.width(8.dp))
+            IconToggle(
+                label = stringResource(R.string.remote_grid),
+                active = gridOn,
+                onClick = { gridOn = !gridOn },
+            )
+            Spacer(Modifier.width(8.dp))
+            IconToggle(
+                label = stringResource(R.string.remote_switch_camera_short),
+                active = false,
+                onClick = { viewModel.switchCamera() },
+            )
+        }
+
         // Exposure compensation: vertical drag on the right edge, up = brighter.
         val evMin = peerState?.evMin ?: 0
         val evMax = peerState?.evMax ?: 0
@@ -327,37 +368,25 @@ fun RemoteConnectedScreen(
 
             TimerSelector(selected = timerSec, onSelect = { timerSec = it })
 
-            // Shutter stays centered; flash + lens on the left, grid on the right.
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Row(
+            // Shutter is big and isolated: gallery thumbnail sits far to the left; no mode toggles
+            // adjacent (they moved up top), guaranteeing clear space around the shutter.
+            val lastRemote = photos.lastOrNull()
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                GalleryThumb(
+                    thumbnailBase64 = lastRemote?.thumbnailBase64,
+                    onClick = { openPhotoInGallery(context, lastRemote?.savedUri) },
                     modifier = Modifier.align(Alignment.CenterStart),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    FlashButton(
-                        mode = peerState?.flash ?: "off",
-                        onCycle = { viewModel.setFlash(nextFlashMode(peerState?.flash ?: "off")) },
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    IconToggle(
-                        label = stringResource(R.string.remote_switch_camera_short),
-                        active = false,
-                        onClick = { viewModel.switchCamera() },
-                    )
-                }
-                Box(modifier = Modifier.align(Alignment.Center)) {
-                    ShutterButton(
-                        onShoot = { viewModel.shutter(timerSec) },
-                        onBurstStart = { viewModel.burstStart() },
-                        onBurstStop = { viewModel.burstStop() },
-                    )
-                }
-                Row(modifier = Modifier.align(Alignment.CenterEnd)) {
-                    IconToggle(
-                        label = stringResource(R.string.remote_grid),
-                        active = gridOn,
-                        onClick = { gridOn = !gridOn },
-                    )
-                }
+                )
+                ShutterButton(
+                    onShoot = { viewModel.shutter(timerSec) },
+                    onBurstStart = { viewModel.burstStart() },
+                    onBurstStop = { viewModel.burstStop() },
+                )
             }
 
             Row(horizontalArrangement = Arrangement.Center) {
@@ -454,9 +483,12 @@ private fun ShutterButton(
     onBurstStart: () -> Unit,
     onBurstStop: () -> Unit,
 ) {
+    // Big, isolated shutter with an outer ring — hard to miss, easy to distinguish from any control.
     Box(
         modifier = Modifier
-            .size(72.dp)
+            .size(84.dp)
+            .border(4.dp, Color(0x88FFFFFF), CircleShape)
+            .padding(6.dp)
             .background(Color.White, CircleShape)
             .pointerInput(Unit) {
                 detectTapGestures(
@@ -647,6 +679,121 @@ private fun ExposureBar(
             )
         }
     }
+}
+
+/**
+ * A TextureView that renders a decoded H.264 preview with correct aspect ratio. The decoder draws
+ * into the surface at the buffer's native resolution; we apply a matrix that aspect-fits
+ * (letterboxes) it into the view and applies the stream's rotation + mirror. Used by both the
+ * remote's incoming preview and the camera's on-device loopback preview.
+ */
+@Composable
+private fun StreamPreview(
+    config: CameraEvent.StreamConfig?,
+    onSurface: (Surface?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val latest = rememberUpdatedState(config)
+    AndroidView(
+        factory = { ctx ->
+            val tv = TextureView(ctx)
+            tv.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) {
+                    onSurface(Surface(st))
+                    applyPreviewTransform(tv, latest.value, w, h)
+                }
+
+                override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) {
+                    applyPreviewTransform(tv, latest.value, w, h)
+                }
+
+                override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
+                    onSurface(null)
+                    return true
+                }
+
+                override fun onSurfaceTextureUpdated(st: SurfaceTexture) = Unit
+            }
+            tv
+        },
+        update = { view ->
+            if (view.width > 0 && view.height > 0) {
+                applyPreviewTransform(view, latest.value, view.width, view.height)
+            }
+        },
+        modifier = modifier,
+    )
+}
+
+/** Uniform scale + letterbox size of a [bufW]×[bufH] buffer fitted into [viewW]×[viewH] after rotation. */
+internal data class PreviewFit(val scale: Float, val dispW: Float, val dispH: Float)
+
+internal fun previewFit(viewW: Float, viewH: Float, bufW: Float, bufH: Float, rotationDegrees: Int): PreviewFit {
+    val r = ((rotationDegrees % 360) + 360) % 360
+    val rotatedW = if (r == 90 || r == 270) bufH else bufW
+    val rotatedH = if (r == 90 || r == 270) bufW else bufH
+    val scale = minOf(viewW / rotatedW, viewH / rotatedH)
+    return PreviewFit(scale, rotatedW * scale, rotatedH * scale)
+}
+
+private fun applyPreviewTransform(view: TextureView, config: CameraEvent.StreamConfig?, vw: Int, vh: Int) {
+    if (config == null || vw == 0 || vh == 0 || config.width == 0 || config.height == 0) return
+    val bw = config.width.toFloat()
+    val bh = config.height.toFloat()
+    val fit = previewFit(vw.toFloat(), vh.toFloat(), bw, bh, config.rotationDegrees)
+    val cx = vw / 2f
+    val cy = vh / 2f
+    val m = Matrix()
+    // The TextureView draws the buffer stretched to fill the view; undo that to natural size…
+    m.postScale(bw / vw, bh / vh)
+    m.postTranslate((vw - config.width) / 2f, (vh - config.height) / 2f)
+    // …then aspect-fit, mirror and rotate about the centre.
+    m.postScale(fit.scale, fit.scale, cx, cy)
+    if (config.mirrored) m.postScale(-1f, 1f, cx, cy)
+    m.postRotate(config.rotationDegrees.toFloat(), cx, cy)
+    view.setTransform(m)
+    view.invalidate()
+}
+
+/** Round last-photo thumbnail that opens the system gallery. Grey placeholder until a photo exists. */
+@Composable
+private fun GalleryThumb(
+    thumbnailBase64: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val bitmap = remember(thumbnailBase64) { thumbnailBase64?.let { decodeBase64Jpeg(it) } }
+    Box(
+        modifier = modifier
+            .size(52.dp)
+            .background(Color(0x33FFFFFF), CircleShape)
+            .border(2.dp, Color.White, CircleShape)
+            .clickable(enabled = thumbnailBase64 != null) { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = stringResource(R.string.gallery_open),
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape),
+            )
+        } else {
+            Text("🖼", fontSize = 20.sp)
+        }
+    }
+}
+
+/** Open the given photo in the system gallery via ACTION_VIEW. No-op if the photo isn't saved yet. */
+private fun openPhotoInGallery(context: Context, uri: Uri?) {
+    if (uri == null) return
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(uri, "image/*")
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    runCatching { context.startActivity(intent) }
+        .onFailure { ru.ui99.photopult.util.PhotopultLog.w("open gallery failed: ${it.message}") }
 }
 
 private fun decodeBase64Jpeg(base64: String): android.graphics.Bitmap? = runCatching {
