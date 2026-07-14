@@ -37,6 +37,21 @@ sealed interface CameraEvent {
         val maxZoom: Float = 1f,
         val resolution: String = "",
     ) : CameraEvent
+
+    /**
+     * Describes the preview STREAM the camera is about to send (or has just changed): encoded
+     * frame size, how many degrees the remote must rotate to show it upright, and whether it is
+     * mirrored (front lens). Sent on the BYTES channel whenever the stream (re)starts.
+     */
+    @Serializable
+    @SerialName("streamConfig")
+    data class StreamConfig(
+        val width: Int,
+        val height: Int,
+        val rotationDegrees: Int,
+        val mirrored: Boolean,
+        val fps: Int,
+    ) : CameraEvent
 }
 
 /** Encodes/decodes messages to/from the UTF-8 bytes carried by a Nearby BYTES payload. */

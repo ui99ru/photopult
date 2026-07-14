@@ -33,6 +33,19 @@ class MessagesTest {
     }
 
     @Test
+    fun streamConfig_roundTripsOverWire() {
+        val original = CameraEvent.StreamConfig(
+            width = 1280,
+            height = 720,
+            rotationDegrees = 90,
+            mirrored = false,
+            fps = 30,
+        )
+        val decoded = Wire.decodeEvent(Wire.encode(original))
+        assertEquals(original, decoded)
+    }
+
+    @Test
     fun state_toleratesUnknownFields() {
         // A newer camera may add fields; an older remote must still parse the state it knows.
         val payload = """{"type":"state","battery":50,"futureField":true}""".encodeToByteArray()

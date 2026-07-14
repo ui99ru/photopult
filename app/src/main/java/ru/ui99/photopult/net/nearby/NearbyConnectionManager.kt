@@ -78,6 +78,10 @@ class NearbyConnectionManager(
     private val _peerState = MutableStateFlow<CameraEvent.State?>(null)
     val peerState: StateFlow<CameraEvent.State?> = _peerState.asStateFlow()
 
+    /** Latest preview stream config announced by the camera (remote side only). */
+    private val _streamConfig = MutableStateFlow<CameraEvent.StreamConfig?>(null)
+    val streamConfig: StateFlow<CameraEvent.StreamConfig?> = _streamConfig.asStateFlow()
+
     private var role: Role? = null
     private val discovered = linkedMapOf<String, DiscoveredEndpoint>()
     private var pending: ConnectionState.Confirming? = null
@@ -262,6 +266,7 @@ class NearbyConnectionManager(
         pending = null
         connectedEndpointId = null
         _peerState.value = null
+        _streamConfig.value = null
         _state.value = ConnectionState.Idle
     }
 
@@ -385,6 +390,7 @@ class NearbyConnectionManager(
                     reconnecting = false
                     connectedEndpointId = endpointId
                     _peerState.value = null
+        _streamConfig.value = null
                     // Camera no longer needs to advertise once paired.
                     if (role == Role.CAMERA) client.stopAdvertising()
                     _state.value = ConnectionState.Connected(endpointId, peer)
@@ -424,6 +430,7 @@ class NearbyConnectionManager(
             pending = null
             connectedEndpointId = null
             _peerState.value = null
+        _streamConfig.value = null
             stopHeartbeat()
             clearConnecting()
             // A live session dropped and we know the pair → auto-reconnect, showing a clear status.
@@ -499,6 +506,13 @@ class NearbyConnectionManager(
             is CameraEvent.State -> {
                 PhotopultLog.i("recv state from $endpointId battery=${event.battery}")
                 _peerState.value = event
+            }
+            is CameraEvent.StreamConfig -> {
+                PhotopultLog.i(
+                    "recv streamConfig ${event.width}x${event.height} rot=${event.rotationDegrees} " +
+                        "mirror=${event.mirrored} fps=${event.fps}",
+                )
+                _streamConfig.value = event
             }
         }
     }
