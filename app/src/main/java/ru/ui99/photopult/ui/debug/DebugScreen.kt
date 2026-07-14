@@ -129,5 +129,6 @@ private fun stateLabel(state: ConnectionState): String = when (state) {
     is ConnectionState.Confirming ->
         stringResource(R.string.debug_state_confirming, state.peerName, state.code)
     is ConnectionState.Connected -> stringResource(R.string.debug_state_connected, state.peerName)
+    is ConnectionState.Reconnecting -> stringResource(R.string.debug_state_reconnecting, state.peerName)
     is ConnectionState.Failed -> stringResource(R.string.debug_state_failed, state.userMessage)
 }

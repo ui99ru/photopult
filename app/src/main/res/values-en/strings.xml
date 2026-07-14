@@ -44,6 +44,7 @@
     <string name="confirm_no">No</string>
     <string name="connect_connected_title">Connected ✅</string>
     <string name="connect_connected_to">Phone: %1$s</string>
+    <string name="connect_reconnecting">Connection lost — reconnecting to \"%1$s\"…</string>
     <string name="connect_failed_title">Couldn\'t connect</string>
     <string name="connect_retry">Try again</string>
     <string name="connected_camera_note">Remote connected</string>
@@ -72,5 +73,6 @@
     <string name="debug_state_discovering">Discovering (found: %1$d)</string>
     <string name="debug_state_confirming">Confirming %1$s, code %2$s</string>
     <string name="debug_state_connected">Connected to %1$s</string>
+    <string name="debug_state_reconnecting">Reconnecting to %1$s</string>
     <string name="debug_state_failed">Error: %1$s</string>
 </resources>

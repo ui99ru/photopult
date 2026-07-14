@@ -42,6 +42,9 @@ sealed interface ConnectionState {
         val peerName: String,
     ) : ConnectionState
 
+    /** A live session dropped; automatically searching for [peerName] to restore it. */
+    data class Reconnecting(val peerName: String) : ConnectionState
+
     /** Something went wrong; [userMessage] is human-readable. */
     data class Failed(val userMessage: String) : ConnectionState
 }

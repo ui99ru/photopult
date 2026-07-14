@@ -44,6 +44,7 @@
     <string name="confirm_no">Нет</string>
     <string name="connect_connected_title">Подключено ✅</string>
     <string name="connect_connected_to">Телефон: %1$s</string>
+    <string name="connect_reconnecting">Связь потеряна — восстанавливаю с «%1$s»…</string>
     <string name="connect_failed_title">Не удалось подключиться</string>
     <string name="connect_retry">Попробовать снова</string>
     <string name="connected_camera_note">Пульт подключён</string>
@@ -72,5 +73,6 @@
     <string name="debug_state_discovering">Поиск (найдено: %1$d)</string>
     <string name="debug_state_confirming">Подтверждение %1$s, код %2$s</string>
     <string name="debug_state_connected">Подключено к %1$s</string>
+    <string name="debug_state_reconnecting">Переподключение к %1$s</string>
     <string name="debug_state_failed">Ошибка: %1$s</string>
 </resources>

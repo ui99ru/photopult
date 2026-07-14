@@ -62,6 +62,10 @@ fun ConnectionScreen(
                 onForget = onForget,
             )
 
+            is ConnectionState.Reconnecting -> SearchingLabel(
+                title = stringResource(R.string.connect_reconnecting, s.peerName),
+            )
+
             is ConnectionState.Failed -> FailedContent(
                 message = s.userMessage,
                 onRetry = viewModel::retry,

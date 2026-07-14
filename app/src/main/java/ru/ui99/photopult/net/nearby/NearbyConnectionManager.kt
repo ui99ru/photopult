@@ -57,6 +57,10 @@ class NearbyConnectionManager(
 
         // Small settle after stopping discovery before requesting a connection.
         const val PRE_REQUEST_SETTLE_MS = 300L
+
+        // Remote pings the camera for state on this interval — keeps battery fresh and doubles as a
+        // command-channel keep-alive.
+        const val HEARTBEAT_MS = 3_000L
     }
 
     private val appContext: Context = context.applicationContext
@@ -89,6 +93,10 @@ class NearbyConnectionManager(
     // Install id of the peer currently being negotiated (parsed from its endpoint name).
     private var pendingPeerId: String? = null
 
+    // Auto-reconnect after an unexpected drop of a live session.
+    private var reconnecting = false
+    private var heartbeatJob: Job? = null
+
     fun start(role: Role) {
         this.role = role
         PhotopultLog.i("start(role=$role, name=$localDisplayName, knownPeer=${pairing.peerId != null})")
@@ -98,8 +106,8 @@ class NearbyConnectionManager(
         }
     }
 
-    private fun startAdvertising() {
-        _state.value = ConnectionState.Advertising(localDisplayName)
+    private fun startAdvertising(showState: Boolean = true) {
+        if (showState) _state.value = ConnectionState.Advertising(localDisplayName)
         val options = AdvertisingOptions.Builder().setStrategy(NearbyConfig.STRATEGY).build()
         PhotopultLog.i("startAdvertising as \"$localDisplayName\" service=${NearbyConfig.SERVICE_ID}")
         client.startAdvertising(localAdvertiseName, NearbyConfig.SERVICE_ID, lifecycleCallback, options)
@@ -110,9 +118,9 @@ class NearbyConnectionManager(
             }
     }
 
-    private fun startDiscovery() {
+    private fun startDiscovery(showState: Boolean = true) {
         discovered.clear()
-        _state.value = ConnectionState.Discovering(emptyList())
+        if (showState) _state.value = ConnectionState.Discovering(emptyList())
         val options = DiscoveryOptions.Builder().setStrategy(NearbyConfig.STRATEGY).build()
         PhotopultLog.i("startDiscovery service=${NearbyConfig.SERVICE_ID}")
         client.startDiscovery(NearbyConfig.SERVICE_ID, discoveryCallback, options)
@@ -244,6 +252,8 @@ class NearbyConnectionManager(
     /** Tear everything down (leaving the flow). */
     fun stop() {
         PhotopultLog.i("stop() — stopping advertising/discovery, disconnecting")
+        reconnecting = false
+        stopHeartbeat()
         clearConnecting()
         client.stopAdvertising()
         client.stopDiscovery()
@@ -257,6 +267,7 @@ class NearbyConnectionManager(
 
     /** Retry after a failure. */
     fun retry() {
+        reconnecting = false
         clearConnecting()
         role?.let { start(it) }
     }
@@ -278,12 +289,15 @@ class NearbyConnectionManager(
      */
     private fun restartDiscoveryOrAdvertising() {
         val currentRole = role ?: return
+        // When reconnecting we keep the "Reconnecting" status on screen instead of the normal
+        // searching state; the remembered-pair auto-connect still runs underneath.
+        val showState = !reconnecting
         connectJob?.cancel()
         connectJob = scope.launch {
             delay(TEARDOWN_PAUSE_MS)
             when (currentRole) {
-                Role.CAMERA -> startAdvertising()
-                Role.REMOTE -> startDiscovery()
+                Role.CAMERA -> startAdvertising(showState)
+                Role.REMOTE -> startDiscovery(showState)
             }
         }
     }
@@ -368,13 +382,18 @@ class NearbyConnectionManager(
                     pending = null
                     pendingPeerId = null
                     clearConnecting()
+                    reconnecting = false
                     connectedEndpointId = endpointId
                     _peerState.value = null
                     // Camera no longer needs to advertise once paired.
                     if (role == Role.CAMERA) client.stopAdvertising()
                     _state.value = ConnectionState.Connected(endpointId, peer)
-                    // Remote asks the camera for its state as soon as the link is up.
-                    if (role == Role.REMOTE) requestState()
+                    // Remote asks the camera for its state as soon as the link is up (state restore
+                    // after a reconnect) and keeps polling as a keep-alive.
+                    if (role == Role.REMOTE) {
+                        requestState()
+                        startHeartbeat()
+                    }
                 }
                 ConnectionsStatusCodes.STATUS_CONNECTION_REJECTED -> {
                     PhotopultLog.w("onConnectionResult $endpointId REJECTED")
@@ -400,12 +419,19 @@ class NearbyConnectionManager(
         }
 
         override fun onDisconnected(endpointId: String) {
-            PhotopultLog.w("onDisconnected $endpointId — returning to search")
+            val wasConnected = connectedEndpointId == endpointId
+            PhotopultLog.w("onDisconnected $endpointId (wasConnected=$wasConnected)")
             pending = null
             connectedEndpointId = null
             _peerState.value = null
+            stopHeartbeat()
             clearConnecting()
-            // Full auto-reconnect with state restore comes in iteration (d).
+            // A live session dropped and we know the pair → auto-reconnect, showing a clear status.
+            if (wasConnected && pairing.peerId != null) {
+                reconnecting = true
+                _state.value = ConnectionState.Reconnecting(pairing.peerName ?: "…")
+                PhotopultLog.i("auto-reconnecting to ${pairing.peerName}")
+            }
             restartDiscoveryOrAdvertising()
         }
     }
@@ -427,6 +453,21 @@ class NearbyConnectionManager(
         override fun onPayloadTransferUpdate(endpointId: String, update: PayloadTransferUpdate) {
             // Relevant for STREAM/FILE payloads in later stages; BYTES arrive whole.
         }
+    }
+
+    private fun startHeartbeat() {
+        stopHeartbeat()
+        heartbeatJob = scope.launch {
+            while (connectedEndpointId != null) {
+                delay(HEARTBEAT_MS)
+                if (connectedEndpointId != null) requestState()
+            }
+        }
+    }
+
+    private fun stopHeartbeat() {
+        heartbeatJob?.cancel()
+        heartbeatJob = null
     }
 
     /** Remote → camera: ask for the current state. */
