@@ -1,10 +1,13 @@
 package ru.ui99.photopult.camera
 
 import android.content.Context
+import android.util.Size
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
@@ -23,6 +26,8 @@ import ru.ui99.photopult.util.PhotopultLog
 class CameraController(
     private val context: Context,
     private val lifecycleOwner: LifecycleOwner,
+    private val targetWidth: Int = 1280,
+    private val targetHeight: Int = 720,
 ) {
     private val executor = Executors.newSingleThreadExecutor()
     private var provider: ProcessCameraProvider? = null
@@ -57,9 +62,18 @@ class CameraController(
         val cameraProvider = provider ?: return
         val surfaceProvider = encoderSurfaceProvider ?: return
 
-        val preview = Preview.Builder().build().also {
-            it.setSurfaceProvider(executor, surfaceProvider)
-        }
+        val resolutionSelector = ResolutionSelector.Builder()
+            .setResolutionStrategy(
+                ResolutionStrategy(
+                    Size(targetWidth, targetHeight),
+                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
+                ),
+            )
+            .build()
+        val preview = Preview.Builder()
+            .setResolutionSelector(resolutionSelector)
+            .build()
+            .also { it.setSurfaceProvider(executor, surfaceProvider) }
         val capture = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
             .build()
