@@ -23,6 +23,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
 import kotlinx.coroutines.launch
@@ -88,6 +89,19 @@ class NearbyConnectionManager(
     /** Latest link-quality level (1..3) reported by the camera (remote side only). */
     private val _linkQuality = MutableStateFlow(3)
     val linkQuality: StateFlow<Int> = _linkQuality.asStateFlow()
+
+    /** Countdown seconds-left shown on both screens; null = no countdown, -1 = cancelled. */
+    private val _countdown = MutableStateFlow<Int?>(null)
+    val countdown: StateFlow<Int?> = _countdown.asStateFlow()
+
+    /** Remote side: capture-related events (thumbnail, captureDone, photoIncoming). */
+    var captureEventListener: ((CameraEvent) -> Unit)? = null
+
+    /** Remote side: an incoming full-photo FILE payload. */
+    var fileListener: ((Payload) -> Unit)? = null
+
+    /** Progress/completion updates for FILE payloads (sender and receiver). */
+    var transferUpdateListener: ((PayloadTransferUpdate) -> Unit)? = null
 
     private var role: Role? = null
     private val discovered = linkedMapOf<String, DiscoveredEndpoint>()
@@ -280,6 +294,7 @@ class NearbyConnectionManager(
         connectedEndpointId = null
         _peerState.value = null
         _streamConfig.value = null
+        _countdown.value = null
         _state.value = ConnectionState.Idle
     }
 
@@ -404,6 +419,7 @@ class NearbyConnectionManager(
                     connectedEndpointId = endpointId
                     _peerState.value = null
         _streamConfig.value = null
+        _countdown.value = null
                     // Camera no longer needs to advertise once paired.
                     if (role == Role.CAMERA) client.stopAdvertising()
                     _state.value = ConnectionState.Connected(endpointId, peer)
@@ -444,6 +460,7 @@ class NearbyConnectionManager(
             connectedEndpointId = null
             _peerState.value = null
         _streamConfig.value = null
+        _countdown.value = null
             stopHeartbeat()
             clearConnecting()
             // A live session dropped and we know the pair → auto-reconnect, showing a clear status.
@@ -466,6 +483,10 @@ class NearbyConnectionManager(
                         streamListener?.invoke(stream)
                     }
                 }
+                Payload.Type.FILE -> {
+                    PhotopultLog.i("incoming FILE payload ${payload.id}")
+                    fileListener?.invoke(payload)
+                }
                 Payload.Type.BYTES -> {
                     val bytes = payload.asBytes() ?: return
                     when (role) {
@@ -479,7 +500,7 @@ class NearbyConnectionManager(
         }
 
         override fun onPayloadTransferUpdate(endpointId: String, update: PayloadTransferUpdate) {
-            // Relevant for STREAM/FILE payloads in later stages; BYTES arrive whole.
+            transferUpdateListener?.invoke(update)
         }
     }
 
@@ -544,6 +565,18 @@ class NearbyConnectionManager(
         return ParcelFileDescriptor.AutoCloseOutputStream(pipe[1])
     }
 
+    /** Camera side: send a full-quality photo file to the remote. Returns the payload id or null. */
+    fun sendFile(file: File): Long? {
+        val endpointId = connectedEndpointId ?: return null
+        return runCatching {
+            val payload = Payload.fromFile(file)
+            client.sendPayload(endpointId, payload)
+                .addOnFailureListener { PhotopultLog.e("sendPayload(file) failed", it) }
+            PhotopultLog.i("sending FILE payload ${payload.id} (${file.name})")
+            payload.id
+        }.getOrElse { PhotopultLog.e("sendFile failed", it); null }
+    }
+
     private fun handleEvent(endpointId: String, bytes: ByteArray) {
         val event = runCatching { Wire.decodeEvent(bytes) }.getOrElse { e ->
             PhotopultLog.e("bad event from $endpointId", e); return
@@ -563,6 +596,13 @@ class NearbyConnectionManager(
             is CameraEvent.LinkQuality -> {
                 _linkQuality.value = event.level.coerceIn(1, 3)
             }
+            is CameraEvent.Countdown -> {
+                _countdown.value = event.secondsLeft.takeIf { it >= 0 }
+            }
+            is CameraEvent.CaptureDone,
+            is CameraEvent.Thumbnail,
+            is CameraEvent.PhotoIncoming,
+            -> captureEventListener?.invoke(event)
         }
     }
 

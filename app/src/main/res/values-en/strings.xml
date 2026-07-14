@@ -55,6 +55,9 @@
     <string name="camera_disconnect">Disconnect</string>
     <string name="remote_waiting_preview">Waiting for the camera preview…</string>
     <string name="remote_switch_camera">Switch camera</string>
+    <string name="snapped">Got it!</string>
+    <string name="timer_now">Now</string>
+    <string name="timer_sec">%1$d s</string>
 
     <!-- Camera state on the remote (Stage 2b) -->
     <string name="state_waiting">Requesting camera state…</string>

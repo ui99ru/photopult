@@ -25,6 +25,19 @@ sealed interface RemoteCommand {
     @Serializable
     @SerialName("switchCamera")
     data object SwitchCamera : RemoteCommand
+
+    /** Take a photo after [timerSec] seconds (0 = now). */
+    @Serializable
+    @SerialName("shutter")
+    data class Shutter(val timerSec: Int = 0) : RemoteCommand
+
+    @Serializable
+    @SerialName("burstStart")
+    data object BurstStart : RemoteCommand
+
+    @Serializable
+    @SerialName("burstStop")
+    data object BurstStop : RemoteCommand
 }
 
 /** Camera → remote. */
@@ -65,6 +78,26 @@ sealed interface CameraEvent {
     @Serializable
     @SerialName("linkQuality")
     data class LinkQuality(val level: Int) : CameraEvent
+
+    /** Countdown tick shown on both screens; [secondsLeft] 0 = firing now. -1 = cancelled. */
+    @Serializable
+    @SerialName("countdown")
+    data class Countdown(val secondsLeft: Int) : CameraEvent
+
+    /** A capture finished (or failed). [photoId] correlates thumbnail + full file. */
+    @Serializable
+    @SerialName("captureDone")
+    data class CaptureDone(val ok: Boolean, val photoId: String, val userMessage: String = "") : CameraEvent
+
+    /** Small preview thumbnail (base64 JPEG) for instant display; full file follows over FILE. */
+    @Serializable
+    @SerialName("thumbnail")
+    data class Thumbnail(val photoId: String, val jpegBase64: String) : CameraEvent
+
+    /** Announces the FILE payload that carries the full-quality photo for [photoId]. */
+    @Serializable
+    @SerialName("photoIncoming")
+    data class PhotoIncoming(val photoId: String, val payloadId: Long) : CameraEvent
 }
 
 /** Encodes/decodes messages to/from the UTF-8 bytes carried by a Nearby BYTES payload. */

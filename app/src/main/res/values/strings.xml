@@ -55,6 +55,9 @@
     <string name="camera_disconnect">Отключить</string>
     <string name="remote_waiting_preview">Жду видео с камеры…</string>
     <string name="remote_switch_camera">Сменить камеру</string>
+    <string name="snapped">Снято!</string>
+    <string name="timer_now">Сразу</string>
+    <string name="timer_sec">%1$d с</string>
 
     <!-- Camera state on the remote (Stage 2b) -->
     <string name="state_waiting">Запрашиваю состояние камеры…</string>

@@ -7,6 +7,12 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import ru.ui99.photopult.camera.CameraSession
 import ru.ui99.photopult.codec.PreviewReceiver
@@ -14,6 +20,8 @@ import ru.ui99.photopult.net.nearby.ConnectionState
 import ru.ui99.photopult.net.nearby.NearbyConnectionManager
 import ru.ui99.photopult.net.protocol.RemoteCommand
 import ru.ui99.photopult.net.protocol.Role
+import ru.ui99.photopult.net.transfer.CaptureReceiver
+import ru.ui99.photopult.net.transfer.TransferQueue
 import ru.ui99.photopult.util.PairingStore
 import ru.ui99.photopult.util.Permissions
 import ru.ui99.photopult.util.PhotopultLog
@@ -31,10 +39,27 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
     val streamConfig = manager.streamConfig
     val linkQuality = manager.linkQuality
 
+    /** Countdown from the camera (remote side). */
+    val remoteCountdown = manager.countdown
+
     private var started = false
 
+    private val transferQueue = TransferQueue()
     private var cameraSession: CameraSession? = null
     private var previewReceiver: PreviewReceiver? = null
+    private var captureReceiver: CaptureReceiver? = null
+
+    // Camera-side capture feedback for the camera screen.
+    private val _cameraCountdown = MutableStateFlow<Int?>(null)
+    val cameraCountdown: StateFlow<Int?> = _cameraCountdown.asStateFlow()
+    private val _snapFlash = MutableStateFlow(0)
+    val snapFlash: StateFlow<Int> = _snapFlash.asStateFlow()
+
+    // Remote-side capture results + feedback.
+    private val _receivedPhotos = MutableStateFlow<List<CaptureReceiver.ReceivedPhoto>>(emptyList())
+    val receivedPhotos: StateFlow<List<CaptureReceiver.ReceivedPhoto>> = _receivedPhotos.asStateFlow()
+    private val _remoteSnap = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+    val remoteSnap: SharedFlow<Unit> = _remoteSnap.asSharedFlow()
 
     /** Remembered role from a previous pairing, if any (used to skip role selection on launch). */
     val rememberedRole: Role? get() = manager.rememberedRole
@@ -85,11 +110,18 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
     /** Camera role: start capturing and streaming to the connected remote. */
     fun startCameraSession(lifecycleOwner: LifecycleOwner, deviceRotationProvider: () -> Int) {
         if (cameraSession != null) return
-        cameraSession = CameraSession(getApplication<Application>(), lifecycleOwner, manager, deviceRotationProvider)
-            .also { it.start() }
+        cameraSession = CameraSession(
+            context = getApplication<Application>(),
+            lifecycleOwner = lifecycleOwner,
+            manager = manager,
+            deviceRotationProvider = deviceRotationProvider,
+            transferQueue = transferQueue,
+            onCountdown = { _cameraCountdown.value = it },
+            onSnapped = { _snapFlash.value++ },
+        ).also { it.start() }
     }
 
-    /** Remote role: start receiving/decoding the preview. Feed it a surface + config. */
+    /** Remote role: start receiving/decoding the preview + capture results. */
     fun startPreviewReceiver() {
         if (previewReceiver != null) return
         val receiver = PreviewReceiver(manager).also { it.start() }
@@ -97,7 +129,16 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             streamConfig.collect { config -> config?.let { receiver.setConfig(it) } }
         }
+        val capture = CaptureReceiver(getApplication<Application>(), manager).also { it.start() }
+        captureReceiver = capture
+        viewModelScope.launch { capture.photos.collect { _receivedPhotos.value = it } }
+        viewModelScope.launch { capture.snapEvents.collect { _remoteSnap.tryEmit(Unit) } }
     }
+
+    // Capture commands (remote → camera).
+    fun shutter(timerSec: Int) = manager.sendCommand(RemoteCommand.Shutter(timerSec))
+    fun burstStart() = manager.sendCommand(RemoteCommand.BurstStart)
+    fun burstStop() = manager.sendCommand(RemoteCommand.BurstStop)
 
     fun setPreviewSurface(surface: Surface?) = previewReceiver?.setSurface(surface)
 
@@ -118,6 +159,9 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
         cameraSession = null
         previewReceiver?.stop()
         previewReceiver = null
+        captureReceiver?.stop()
+        captureReceiver = null
+        _cameraCountdown.value = null
     }
 
     private fun missingPermissions(): List<String> {
