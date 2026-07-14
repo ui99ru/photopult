@@ -120,8 +120,41 @@ fun DebugScreen(
                 text = stringResource(R.string.debug_bitrate, bitrate / 1000, viewModel.cameraResolution() ?: "—"),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = stringResource(R.string.debug_transfers, tick.let { viewModel.cameraPendingTransfers() }),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
+        }
+
+        // Remote-side camera state (flash/exposure/battery) mirrored from the camera.
+        val peer by viewModel.peerState.collectAsState()
+        peer?.let { s ->
+            Text(
+                text = stringResource(
+                    R.string.debug_camera_state,
+                    s.flash,
+                    String.format(Locale.US, "%.1f", s.zoomRatio),
+                    s.lens,
+                ),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = stringResource(R.string.debug_camera_exposure, s.evIndex, s.evMin, s.evMax),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            if (s.battery in 0..100) {
+                Text(
+                    text = stringResource(R.string.debug_camera_battery, s.battery),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
         }
 
         Text(

@@ -146,12 +146,19 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
 
     fun switchCamera() = manager.sendCommand(RemoteCommand.SwitchCamera)
 
+    fun setFlash(mode: String) = manager.sendCommand(RemoteCommand.SetFlash(mode))
+
+    fun focusAt(x: Float, y: Float) = manager.sendCommand(RemoteCommand.Focus(x, y))
+
+    fun setExposure(index: Int) = manager.sendCommand(RemoteCommand.SetExposure(index))
+
     fun previewFramesRendered(): Long = previewReceiver?.framesRendered ?: 0
     fun previewFramesDropped(): Long = previewReceiver?.framesDropped ?: 0
 
     /** Camera-side adaptive stream metrics (debug). */
     fun cameraBitrate(): Int = cameraSession?.currentBitrate() ?: 0
     fun cameraResolution(): String? = cameraSession?.currentResolution()
+    fun cameraPendingTransfers(): Int = cameraSession?.pendingTransfers() ?: 0
 
     /** Stop preview sessions (leaving the connected screen / disconnect). */
     fun stopSessions() {

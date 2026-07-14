@@ -55,9 +55,24 @@
     <string name="camera_disconnect">Disconnect</string>
     <string name="remote_waiting_preview">Waiting for the camera preview…</string>
     <string name="remote_switch_camera">Switch camera</string>
+    <string name="remote_switch_camera_short">Camera ⇄</string>
+    <string name="remote_grid">Grid</string>
+    <string name="remote_battery_low">Camera battery low</string>
     <string name="snapped">Got it!</string>
     <string name="timer_now">Now</string>
     <string name="timer_sec">%1$d s</string>
+
+    <!-- Flash, exposure (Stage 6) -->
+    <string name="flash_off">Flash: off</string>
+    <string name="flash_auto">Flash: auto</string>
+    <string name="flash_on">Flash: on</string>
+    <string name="exposure_value">EV %1$s</string>
+
+    <!-- Foreground service (Stage 6) -->
+    <string name="fgs_title">Photopult is shooting</string>
+    <string name="fgs_text">Session active — the phone is ready to take photos on the remote\'s command</string>
+    <string name="fgs_channel_name">Active capture</string>
+    <string name="fgs_channel_desc">Notification shown while the camera is linked to the remote</string>
 
     <!-- Camera state on the remote (Stage 2b) -->
     <string name="state_waiting">Requesting camera state…</string>
@@ -88,4 +103,8 @@
     <string name="debug_frames">Frames: rendered %1$d, dropped %2$d</string>
     <string name="debug_link">Link quality: %1$d/3</string>
     <string name="debug_bitrate">Camera bitrate: %1$d kbps, %2$s</string>
+    <string name="debug_transfers">Photo transfer queue: %1$d</string>
+    <string name="debug_camera_state">Camera: flash %1$s, zoom ×%2$s, lens %3$s</string>
+    <string name="debug_camera_exposure">Exposure: EV %1$d (range %2$d…%3$d)</string>
+    <string name="debug_camera_battery">Camera battery: %1$d%%</string>
 </resources>

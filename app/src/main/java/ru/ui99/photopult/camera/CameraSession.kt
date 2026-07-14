@@ -74,6 +74,8 @@ class CameraSession(
 
     fun start() {
         PhotopultLog.i("CameraSession.start")
+        // Keep the process (and CameraX session) alive through calls/backgrounding.
+        CaptureForegroundService.start(context)
         manager.commandListener = { handleCommand(it) }
         manager.transferUpdateListener = { onTransferUpdate(it) }
         controller.onCameraReady = { onCameraReady() }
@@ -182,6 +184,15 @@ class CameraSession(
             is RemoteCommand.Shutter -> startCapture(command.timerSec)
             RemoteCommand.BurstStart -> startBurst()
             RemoteCommand.BurstStop -> stopBurst()
+            is RemoteCommand.SetFlash -> {
+                controller.setFlash(command.mode)
+                sendState()
+            }
+            is RemoteCommand.Focus -> controller.focusAt(command.x, command.y)
+            is RemoteCommand.SetExposure -> {
+                controller.setExposureIndex(command.index)
+                sendState()
+            }
         }
     }
 
@@ -300,11 +311,14 @@ class CameraSession(
         manager.sendEvent(
             CameraEvent.State(
                 battery = batteryPercent(),
-                flash = "off",
+                flash = snap.flashMode,
                 lens = if (controller.isFront()) "front" else "back",
                 zoomRatio = snap.zoomRatio,
                 maxZoom = snap.maxZoomRatio,
                 resolution = "${currentRung.width}x${currentRung.height}",
+                evIndex = snap.evIndex,
+                evMin = snap.evMin,
+                evMax = snap.evMax,
             ),
         )
     }
@@ -320,6 +334,7 @@ class CameraSession(
     /** For the debug screen. */
     fun currentBitrate(): Int = currentRung.bitrate
     fun currentResolution(): String = "${currentRung.width}x${currentRung.height}"
+    fun pendingTransfers(): Int = transferQueue.pendingCount()
 
     fun stop() {
         PhotopultLog.i("CameraSession.stop")
@@ -336,6 +351,7 @@ class CameraSession(
         streamOut = null
         runCatching { surfaceExecutor.shutdown() }
         runCatching { captureExecutor.shutdown() }
+        CaptureForegroundService.stop(context)
     }
 }
 

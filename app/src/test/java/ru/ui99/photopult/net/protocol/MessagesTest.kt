@@ -46,6 +46,26 @@ class MessagesTest {
     }
 
     @Test
+    fun flashFocusExposure_roundTripOverWire() {
+        listOf(
+            RemoteCommand.SetFlash("auto"),
+            RemoteCommand.Focus(0.3f, 0.7f),
+            RemoteCommand.SetExposure(-2),
+        ).forEach { command ->
+            assertEquals(command, Wire.decodeCommand(Wire.encode(command)))
+        }
+    }
+
+    @Test
+    fun state_carriesExposureRange() {
+        val original = CameraEvent.State(battery = 60, evIndex = -3, evMin = -12, evMax = 12)
+        val decoded = Wire.decodeEvent(Wire.encode(original)) as CameraEvent.State
+        assertEquals(-3, decoded.evIndex)
+        assertEquals(-12, decoded.evMin)
+        assertEquals(12, decoded.evMax)
+    }
+
+    @Test
     fun state_toleratesUnknownFields() {
         // A newer camera may add fields; an older remote must still parse the state it knows.
         val payload = """{"type":"state","battery":50,"futureField":true}""".encodeToByteArray()

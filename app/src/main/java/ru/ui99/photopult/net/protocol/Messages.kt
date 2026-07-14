@@ -38,6 +38,24 @@ sealed interface RemoteCommand {
     @Serializable
     @SerialName("burstStop")
     data object BurstStop : RemoteCommand
+
+    /** Cycle/set the flash mode used for the next capture: "off" / "on" / "auto". */
+    @Serializable
+    @SerialName("setFlash")
+    data class SetFlash(val mode: String) : RemoteCommand
+
+    /**
+     * Tap-to-focus at a point in the preview the operator sees, normalized to 0..1 in the
+     * *displayed* (upright) frame. The camera side maps it back to sensor coordinates.
+     */
+    @Serializable
+    @SerialName("focus")
+    data class Focus(val x: Float, val y: Float) : RemoteCommand
+
+    /** Exposure compensation as a raw index within the sensor's supported range. */
+    @Serializable
+    @SerialName("setExposure")
+    data class SetExposure(val index: Int) : RemoteCommand
 }
 
 /** Camera → remote. */
@@ -57,6 +75,10 @@ sealed interface CameraEvent {
         val zoomRatio: Float = 1f,
         val maxZoom: Float = 1f,
         val resolution: String = "",
+        // Exposure compensation: current index and the sensor's supported [evMin, evMax] range.
+        val evIndex: Int = 0,
+        val evMin: Int = 0,
+        val evMax: Int = 0,
     ) : CameraEvent
 
     /**

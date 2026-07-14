@@ -55,9 +55,24 @@
     <string name="camera_disconnect">Отключить</string>
     <string name="remote_waiting_preview">Жду видео с камеры…</string>
     <string name="remote_switch_camera">Сменить камеру</string>
+    <string name="remote_switch_camera_short">Камера ⇄</string>
+    <string name="remote_grid">Сетка</string>
+    <string name="remote_battery_low">Низкий заряд камеры</string>
     <string name="snapped">Снято!</string>
     <string name="timer_now">Сразу</string>
     <string name="timer_sec">%1$d с</string>
+
+    <!-- Flash, exposure (Stage 6) -->
+    <string name="flash_off">Вспышка: выкл</string>
+    <string name="flash_auto">Вспышка: авто</string>
+    <string name="flash_on">Вспышка: вкл</string>
+    <string name="exposure_value">EV %1$s</string>
+
+    <!-- Foreground service (Stage 6) -->
+    <string name="fgs_title">Фотопульт снимает</string>
+    <string name="fgs_text">Сессия активна — телефон готов делать снимки по команде пульта</string>
+    <string name="fgs_channel_name">Активная съёмка</string>
+    <string name="fgs_channel_desc">Уведомление, пока камера на связи с пультом</string>
 
     <!-- Camera state on the remote (Stage 2b) -->
     <string name="state_waiting">Запрашиваю состояние камеры…</string>
@@ -88,4 +103,8 @@
     <string name="debug_frames">Кадры: отрисовано %1$d, дропнуто %2$d</string>
     <string name="debug_link">Качество связи: %1$d/3</string>
     <string name="debug_bitrate">Битрейт камеры: %1$d кбит/с, %2$s</string>
+    <string name="debug_transfers">Очередь передачи фото: %1$d</string>
+    <string name="debug_camera_state">Камера: вспышка %1$s, зум ×%2$s, объектив %3$s</string>
+    <string name="debug_camera_exposure">Экспозиция: EV %1$d (диапазон %2$d…%3$d)</string>
+    <string name="debug_camera_battery">Батарея камеры: %1$d%%</string>
 </resources>
