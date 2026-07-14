@@ -47,6 +47,7 @@
     <string name="connect_failed_title">Couldn\'t connect</string>
     <string name="connect_retry">Try again</string>
     <string name="connected_camera_note">Remote connected</string>
+    <string name="pair_forget">Forget device</string>
 
     <!-- Camera state on the remote (Stage 2b) -->
     <string name="state_waiting">Requesting camera state…</string>

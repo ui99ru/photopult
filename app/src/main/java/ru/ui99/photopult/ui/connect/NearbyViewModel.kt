@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import ru.ui99.photopult.net.nearby.ConnectionState
 import ru.ui99.photopult.net.nearby.NearbyConnectionManager
 import ru.ui99.photopult.net.protocol.Role
+import ru.ui99.photopult.util.PairingStore
 import ru.ui99.photopult.util.Permissions
 import ru.ui99.photopult.util.PhotopultLog
 
@@ -17,11 +18,17 @@ import ru.ui99.photopult.util.PhotopultLog
  */
 class NearbyViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val manager = NearbyConnectionManager(application, viewModelScope)
+    private val pairing = PairingStore(application)
+    private val manager = NearbyConnectionManager(application, viewModelScope, pairing)
     val state = manager.state
     val peerState = manager.peerState
 
     private var started = false
+
+    /** Remembered role from a previous pairing, if any (used to skip role selection on launch). */
+    val rememberedRole: Role? get() = manager.rememberedRole
+    fun hasRememberedPeer(): Boolean = manager.hasRememberedPeer()
+    fun permissionsGranted(): Boolean = missingPermissions().isEmpty()
 
     /** Idempotent: starts advertising/discovery once for the chosen role. */
     fun start(role: Role) {
@@ -52,6 +59,12 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
     fun reset() {
         started = false
         manager.stop()
+    }
+
+    /** Forget the remembered pair and role, then tear down. */
+    fun forgetPairing() {
+        started = false
+        manager.forgetPeer()
     }
 
     fun isConnected(): Boolean = state.value is ConnectionState.Connected

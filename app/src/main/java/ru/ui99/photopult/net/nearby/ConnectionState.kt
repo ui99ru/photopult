@@ -4,6 +4,7 @@ package ru.ui99.photopult.net.nearby
 data class DiscoveredEndpoint(
     val endpointId: String,
     val name: String,
+    val installId: String,
 )
 
 /**

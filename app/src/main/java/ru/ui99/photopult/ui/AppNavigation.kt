@@ -3,6 +3,7 @@ package ru.ui99.photopult.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -25,14 +26,26 @@ private enum class Screen {
  * State-driven navigation: role selection → permissions → connection (camera or remote). The
  * hidden debug screen is reachable from the role and connection screens and returns to wherever
  * it was opened from. The Nearby ViewModel is activity-scoped so the link survives navigation.
+ *
+ * If a previous pairing is remembered (role + peer) and permissions are already granted, the app
+ * jumps straight to the connection screen on launch and reconnects with zero taps.
  */
 @Composable
 fun AppNavigation() {
-    var screen by rememberSaveable { mutableStateOf(Screen.ROLE_SELECTION) }
-    var returnTo by rememberSaveable { mutableStateOf(Screen.ROLE_SELECTION) }
-    var chosenRole by rememberSaveable { mutableStateOf<Role?>(null) }
-
     val nearbyViewModel: NearbyViewModel = viewModel()
+
+    val rememberedRole = remember { nearbyViewModel.rememberedRole }
+    val autoConnect = remember {
+        rememberedRole != null &&
+            nearbyViewModel.hasRememberedPeer() &&
+            nearbyViewModel.permissionsGranted()
+    }
+
+    var screen by rememberSaveable {
+        mutableStateOf(if (autoConnect) Screen.CONNECT else Screen.ROLE_SELECTION)
+    }
+    var returnTo by rememberSaveable { mutableStateOf(Screen.ROLE_SELECTION) }
+    var chosenRole by rememberSaveable { mutableStateOf(if (autoConnect) rememberedRole else null) }
 
     when (screen) {
         Screen.ROLE_SELECTION -> RoleSelectionScreen(
@@ -66,6 +79,11 @@ fun AppNavigation() {
                     onOpenDebug = {
                         returnTo = Screen.CONNECT
                         screen = Screen.DEBUG
+                    },
+                    onForget = {
+                        nearbyViewModel.forgetPairing()
+                        chosenRole = null
+                        screen = Screen.ROLE_SELECTION
                     },
                 )
             }

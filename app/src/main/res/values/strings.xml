@@ -47,6 +47,7 @@
     <string name="connect_failed_title">Не удалось подключиться</string>
     <string name="connect_retry">Попробовать снова</string>
     <string name="connected_camera_note">Пульт подключён</string>
+    <string name="pair_forget">Забыть устройство</string>
 
     <!-- Camera state on the remote (Stage 2b) -->
     <string name="state_waiting">Запрашиваю состояние камеры…</string>

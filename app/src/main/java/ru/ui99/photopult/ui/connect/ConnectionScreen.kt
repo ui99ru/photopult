@@ -38,6 +38,7 @@ fun ConnectionScreen(
     viewModel: NearbyViewModel,
     onBack: () -> Unit,
     onOpenDebug: () -> Unit,
+    onForget: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsState()
@@ -58,6 +59,7 @@ fun ConnectionScreen(
                 peerName = s.peerName,
                 peerState = peerState,
                 onRefresh = viewModel::requestState,
+                onForget = onForget,
             )
 
             is ConnectionState.Failed -> FailedContent(
@@ -203,6 +205,7 @@ private fun ConnectedContent(
     peerName: String,
     peerState: CameraEvent.State?,
     onRefresh: () -> Unit,
+    onForget: () -> Unit,
 ) {
     Text(
         text = stringResource(R.string.connect_connected_title),
@@ -228,6 +231,11 @@ private fun ConnectedContent(
         )
 
         Role.REMOTE -> RemoteStatePanel(peerState = peerState, onRefresh = onRefresh)
+    }
+
+    Spacer(Modifier.height(20.dp))
+    TextButton(onClick = onForget) {
+        Text(stringResource(R.string.pair_forget))
     }
 }
 

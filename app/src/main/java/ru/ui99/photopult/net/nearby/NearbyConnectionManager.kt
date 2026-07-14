@@ -28,6 +28,7 @@ import ru.ui99.photopult.net.protocol.RemoteCommand
 import ru.ui99.photopult.net.protocol.Role
 import ru.ui99.photopult.net.protocol.Wire
 import ru.ui99.photopult.util.DeviceName
+import ru.ui99.photopult.util.PairingStore
 import ru.ui99.photopult.util.PhotopultLog
 
 /**
@@ -41,6 +42,7 @@ import ru.ui99.photopult.util.PhotopultLog
 class NearbyConnectionManager(
     context: Context,
     private val scope: CoroutineScope,
+    private val pairing: PairingStore,
 ) {
 
     private companion object {
@@ -59,7 +61,11 @@ class NearbyConnectionManager(
 
     private val appContext: Context = context.applicationContext
     private val client: ConnectionsClient = Nearby.getConnectionsClient(appContext)
-    private val localName: String = DeviceName.of(appContext)
+
+    // Friendly name shown in the UI; the advertised name also carries our stable install id so a
+    // remembered peer can recognise us across sessions.
+    private val localDisplayName: String = DeviceName.of(appContext)
+    private val localAdvertiseName: String = EndpointName.encode(localDisplayName, pairing.installId())
 
     private val _state = MutableStateFlow<ConnectionState>(ConnectionState.Idle)
     val state: StateFlow<ConnectionState> = _state.asStateFlow()
@@ -80,9 +86,12 @@ class NearbyConnectionManager(
     private var connectJob: Job? = null
     private var watchdogJob: Job? = null
 
+    // Install id of the peer currently being negotiated (parsed from its endpoint name).
+    private var pendingPeerId: String? = null
+
     fun start(role: Role) {
         this.role = role
-        PhotopultLog.i("start(role=$role, localName=$localName)")
+        PhotopultLog.i("start(role=$role, name=$localDisplayName, knownPeer=${pairing.peerId != null})")
         when (role) {
             Role.CAMERA -> startAdvertising()
             Role.REMOTE -> startDiscovery()
@@ -90,10 +99,10 @@ class NearbyConnectionManager(
     }
 
     private fun startAdvertising() {
-        _state.value = ConnectionState.Advertising(localName)
+        _state.value = ConnectionState.Advertising(localDisplayName)
         val options = AdvertisingOptions.Builder().setStrategy(NearbyConfig.STRATEGY).build()
-        PhotopultLog.i("startAdvertising as \"$localName\" service=${NearbyConfig.SERVICE_ID}")
-        client.startAdvertising(localName, NearbyConfig.SERVICE_ID, lifecycleCallback, options)
+        PhotopultLog.i("startAdvertising as \"$localDisplayName\" service=${NearbyConfig.SERVICE_ID}")
+        client.startAdvertising(localAdvertiseName, NearbyConfig.SERVICE_ID, lifecycleCallback, options)
             .addOnSuccessListener { PhotopultLog.i("advertising started") }
             .addOnFailureListener { e ->
                 PhotopultLog.e("startAdvertising failed", e)
@@ -145,7 +154,7 @@ class NearbyConnectionManager(
         initiated = false
         PhotopultLog.i("requestConnection to $endpointId (attempt ${retryCount + 1})")
         armWatchdog(endpointId)
-        client.requestConnection(localName, endpointId, lifecycleCallback)
+        client.requestConnection(localAdvertiseName, endpointId, lifecycleCallback)
             .addOnSuccessListener { PhotopultLog.i("requestConnection sent") }
             .addOnFailureListener { e ->
                 val code = (e as? ApiException)?.statusCode
@@ -196,6 +205,7 @@ class NearbyConnectionManager(
 
     private fun clearConnecting() {
         connectingEndpointId = null
+        pendingPeerId = null
         retryCount = 0
         initiated = false
         connectJob?.cancel()
@@ -251,6 +261,16 @@ class NearbyConnectionManager(
         role?.let { start(it) }
     }
 
+    /** Forget the remembered pair (and role) and tear down the session. */
+    fun forgetPeer() {
+        PhotopultLog.i("forgetPeer()")
+        pairing.forget()
+        stop()
+    }
+
+    val rememberedRole: Role? get() = pairing.rememberedRole
+    fun hasRememberedPeer(): Boolean = pairing.peerId != null
+
     /**
      * Restart advertising/discovery after a teardown, but only after a short pause so the radio
      * stack releases first — starting immediately after a disconnect is what let a freshly found
@@ -270,9 +290,16 @@ class NearbyConnectionManager(
 
     private val discoveryCallback = object : EndpointDiscoveryCallback() {
         override fun onEndpointFound(endpointId: String, info: DiscoveredEndpointInfo) {
-            PhotopultLog.i("onEndpointFound $endpointId name=${info.endpointName}")
-            discovered[endpointId] = DiscoveredEndpoint(endpointId, info.endpointName)
+            val display = EndpointName.displayOf(info.endpointName)
+            val peerId = EndpointName.idOf(info.endpointName)
+            PhotopultLog.i("onEndpointFound $endpointId name=$display")
+            discovered[endpointId] = DiscoveredEndpoint(endpointId, display, peerId)
             emitDiscovered()
+            // Remembered pair → connect automatically, no tap. The connect guard prevents storms.
+            if (peerId == pairing.peerId && connectingEndpointId == null) {
+                PhotopultLog.i("known peer $display found — auto-connecting")
+                connectTo(endpointId)
+            }
         }
 
         override fun onEndpointLost(endpointId: String) {
@@ -296,23 +323,33 @@ class NearbyConnectionManager(
     private val lifecycleCallback = object : ConnectionLifecycleCallback() {
         override fun onConnectionInitiated(endpointId: String, info: ConnectionInfo) {
             val token = info.authenticationDigits
+            val display = EndpointName.displayOf(info.endpointName)
+            val peerId = EndpointName.idOf(info.endpointName)
             val confirming = ConnectionState.Confirming(
                 endpointId = endpointId,
-                peerName = info.endpointName,
+                peerName = display,
                 code = ConfirmationCode.digits(token),
                 emojis = ConfirmationCode.emojis(token),
                 incoming = info.isIncomingConnection,
             )
-            PhotopultLog.i(
-                "onConnectionInitiated $endpointId peer=${info.endpointName} " +
-                    "incoming=${info.isIncomingConnection} code=${confirming.code}",
-            )
-            // Negotiation reached the other side — stop the pre-initiation watchdog; from here we
-            // wait on the user's confirmation, which has no timeout.
+            // Negotiation reached the other side — stop the pre-initiation watchdog.
             initiated = true
             cancelWatchdog()
             pending = confirming
-            _state.value = confirming
+            pendingPeerId = peerId
+
+            if (peerId == pairing.peerId) {
+                // Remembered pair — accept without asking for the code (both sides do this).
+                PhotopultLog.i("onConnectionInitiated $endpointId peer=$display — known, auto-accepting")
+                client.acceptConnection(endpointId, payloadCallback)
+                    .addOnFailureListener { e -> PhotopultLog.e("auto acceptConnection failed", e) }
+            } else {
+                PhotopultLog.i(
+                    "onConnectionInitiated $endpointId peer=$display " +
+                        "incoming=${info.isIncomingConnection} code=${confirming.code} — awaiting user",
+                )
+                _state.value = confirming
+            }
         }
 
         override fun onConnectionResult(endpointId: String, resolution: ConnectionResolution) {
@@ -322,7 +359,14 @@ class NearbyConnectionManager(
                 ConnectionsStatusCodes.STATUS_OK -> {
                     val peer = pending?.peerName ?: endpointId
                     PhotopultLog.i("onConnectionResult $endpointId OK — connected to $peer")
+                    // Remember this pair (and our role) so next launch reconnects with zero taps.
+                    pendingPeerId?.let { id ->
+                        pairing.rememberPeer(id, peer)
+                        role?.let { pairing.rememberedRole = it }
+                        PhotopultLog.i("remembered peer $peer (role=$role)")
+                    }
                     pending = null
+                    pendingPeerId = null
                     clearConnecting()
                     connectedEndpointId = endpointId
                     _peerState.value = null
