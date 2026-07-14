@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import ru.ui99.photopult.net.nearby.ConnectionState
 import ru.ui99.photopult.net.nearby.NearbyConnectionManager
 import ru.ui99.photopult.net.protocol.Role
@@ -16,7 +17,7 @@ import ru.ui99.photopult.util.PhotopultLog
  */
 class NearbyViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val manager = NearbyConnectionManager(application)
+    private val manager = NearbyConnectionManager(application, viewModelScope)
     val state = manager.state
     val peerState = manager.peerState
 

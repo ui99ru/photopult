@@ -37,6 +37,7 @@
     <string name="connect_camera_hint">Откройте приложение на втором телефоне и выберите «пульт»</string>
     <string name="connect_remote_searching">Ищу камеры рядом…</string>
     <string name="connect_remote_found_title">Найденные камеры</string>
+    <string name="connect_connecting">Подключаюсь…</string>
     <string name="confirm_title">Это ваша пара?</string>
     <string name="confirm_body">Проверьте, что на обоих телефонах одинаковые значки и цифры</string>
     <string name="confirm_yes">Да, это он</string>

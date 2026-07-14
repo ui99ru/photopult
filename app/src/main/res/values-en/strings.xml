@@ -37,6 +37,7 @@
     <string name="connect_camera_hint">Open the app on the other phone and choose \"remote\"</string>
     <string name="connect_remote_searching">Looking for cameras nearby…</string>
     <string name="connect_remote_found_title">Cameras found</string>
+    <string name="connect_connecting">Connecting…</string>
     <string name="confirm_title">Is this your pair?</string>
     <string name="confirm_body">Check that both phones show the same icons and digits</string>
     <string name="confirm_yes">Yes, that\'s it</string>

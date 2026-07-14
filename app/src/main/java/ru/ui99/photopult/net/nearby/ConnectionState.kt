@@ -17,8 +17,14 @@ sealed interface ConnectionState {
     /** Camera is advertising and waiting for a remote to appear. */
     data class Advertising(val localName: String) : ConnectionState
 
-    /** Remote is discovering; [endpoints] updates as cameras come and go. */
-    data class Discovering(val endpoints: List<DiscoveredEndpoint>) : ConnectionState
+    /**
+     * Remote is discovering; [endpoints] updates as cameras come and go. While a connection to
+     * [connectingEndpointId] is in progress that card shows "connecting" and taps are ignored.
+     */
+    data class Discovering(
+        val endpoints: List<DiscoveredEndpoint>,
+        val connectingEndpointId: String? = null,
+    ) : ConnectionState
 
     /** A connection was initiated; both sides show [code] + [emojis] to confirm the same pair. */
     data class Confirming(

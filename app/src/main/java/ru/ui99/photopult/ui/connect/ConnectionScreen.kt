@@ -1,6 +1,7 @@
 package ru.ui99.photopult.ui.connect
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -66,6 +67,7 @@ fun ConnectionScreen(
 
             is ConnectionState.Discovering -> DiscoveringContent(
                 endpoints = s.endpoints,
+                connectingEndpointId = s.connectingEndpointId,
                 onConnect = viewModel::connectTo,
             )
 
@@ -109,6 +111,7 @@ private fun AdvertisingContent(localName: String) {
 @Composable
 private fun DiscoveringContent(
     endpoints: List<ru.ui99.photopult.net.nearby.DiscoveredEndpoint>,
+    connectingEndpointId: String?,
     onConnect: (String) -> Unit,
 ) {
     if (endpoints.isEmpty()) {
@@ -122,9 +125,12 @@ private fun DiscoveringContent(
         color = MaterialTheme.colorScheme.onBackground,
         modifier = Modifier.padding(bottom = 16.dp),
     )
+    val busy = connectingEndpointId != null
     endpoints.forEach { endpoint ->
+        val isConnecting = connectingEndpointId == endpoint.endpointId
         Card(
             onClick = { onConnect(endpoint.endpointId) },
+            enabled = !busy,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 6.dp),
@@ -132,14 +138,21 @@ private fun DiscoveringContent(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
             ),
         ) {
-            Text(
-                text = "📷  ${endpoint.name}",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-            )
+            Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
+                Text(
+                    text = "📷  ${endpoint.name}",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                if (isConnecting) {
+                    Text(
+                        text = stringResource(R.string.connect_connecting),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+            }
         }
     }
 }
