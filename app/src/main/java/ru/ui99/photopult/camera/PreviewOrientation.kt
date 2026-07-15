@@ -18,7 +18,13 @@ object PreviewOrientation {
     fun rotationForUpright(sensorRotation: Int, deviceRotation: Int, front: Boolean): Int {
         val s = norm(sensorRotation)
         val d = norm(deviceRotation)
-        return if (front) norm(s + d) else norm(s - d)
+        val base = if (front) norm(s + d) else norm(s - d)
+        // Observed on the test devices (Xiaomi/POCO, MIUI): frames from the encoder-input Surface
+        // come out 180° rotated when the camera phone is in a portrait orientation, while landscape
+        // is already upright. Add the half-turn for portrait device rotations (0°/180°) only, so the
+        // known-good landscape path is untouched.
+        val portraitFix = if (d == 0 || d == 180) 180 else 0
+        return norm(base + portraitFix)
     }
 
     /** Front lens frames are horizontally mirrored. */
