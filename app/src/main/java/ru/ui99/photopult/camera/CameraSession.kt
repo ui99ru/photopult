@@ -8,6 +8,7 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.google.android.gms.nearby.connection.PayloadTransferUpdate
 import java.io.File
@@ -48,7 +49,6 @@ class CameraSession(
     private val context: Context,
     lifecycleOwner: LifecycleOwner,
     private val manager: NearbyConnectionManager,
-    private val deviceRotationProvider: () -> Int,
     private val transferQueue: TransferQueue,
     private val onCountdown: (Int?) -> Unit = {},
     private val onSnapped: () -> Unit = {},
@@ -84,6 +84,10 @@ class CameraSession(
     val localConfig: StateFlow<CameraEvent.StreamConfig?> = _localConfig.asStateFlow()
 
     @Volatile private var streamOut: OutputStream? = null
+
+    // Device-authoritative rotation, delivered by CameraX via the preview SurfaceRequest.
+    @Volatile private var streamRotation = 0
+    @Volatile private var haveRotation = false
 
     fun start() {
         PhotopultLog.i("CameraSession.start")
@@ -125,12 +129,35 @@ class CameraSession(
     fun setLocalPreviewSurface(surface: Surface?) = localPreview.setSurface(surface)
 
     private fun encoderSurfaceProvider() = Preview.SurfaceProvider { request ->
+        // CameraX tells us exactly how many degrees to rotate the frame to be upright (accounting
+        // for the sensor and the current device orientation) — the source of truth for rotation.
+        request.setTransformationInfoListener(ContextCompat.getMainExecutor(context)) { info ->
+            val rot = ((info.rotationDegrees % 360) + 360) % 360
+            streamRotation = rot
+            haveRotation = true
+            publishStreamConfig()
+        }
         val surface = encoder?.inputSurface
         if (surface != null) {
             request.provideSurface(surface, surfaceExecutor) { /* surface released by camera */ }
         } else {
             request.willNotProvideSurface()
         }
+    }
+
+    /** Broadcast the current preview geometry to the remote + the local preview. */
+    private fun publishStreamConfig() {
+        if (!haveRotation) return
+        val config = CameraEvent.StreamConfig(
+            width = currentRung.width,
+            height = currentRung.height,
+            rotationDegrees = streamRotation,
+            mirrored = PreviewOrientation.isMirrored(controller.isFront()),
+            fps = FPS,
+        )
+        _localConfig.value = config
+        manager.sendEvent(config)
+        encoder?.requestKeyframe()
     }
 
     // ---- Adaptive quality ----
@@ -171,21 +198,9 @@ class CameraSession(
     }
 
     private fun onCameraReady() {
-        val snap = controller.snapshot()
-        val rotation = PreviewOrientation.rotationForUpright(
-            sensorRotation = snap.sensorRotationDegrees,
-            deviceRotation = deviceRotationProvider(),
-            front = controller.isFront(),
-        )
-        val config = CameraEvent.StreamConfig(
-            width = currentRung.width,
-            height = currentRung.height,
-            rotationDegrees = rotation,
-            mirrored = PreviewOrientation.isMirrored(controller.isFront()),
-            fps = FPS,
-        )
-        _localConfig.value = config
-        manager.sendEvent(config)
+        // Re-publish geometry (lens switch / rebind may change mirroring); rotation comes from the
+        // CameraX transformation listener. sendState reports the rest.
+        publishStreamConfig()
         sendState()
         encoder?.requestKeyframe()
     }

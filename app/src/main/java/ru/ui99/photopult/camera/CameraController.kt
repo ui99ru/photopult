@@ -2,6 +2,8 @@ package ru.ui99.photopult.camera
 
 import android.content.Context
 import android.util.Size
+import android.view.OrientationEventListener
+import android.view.Surface
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.FocusMeteringAction
@@ -36,9 +38,36 @@ class CameraController(
     private var provider: ProcessCameraProvider? = null
     private var camera: Camera? = null
     private var imageCapture: ImageCapture? = null
+    private var preview: Preview? = null
 
     private var lensFacing = CameraSelector.LENS_FACING_BACK
     private var encoderSurfaceProvider: Preview.SurfaceProvider? = null
+
+    /**
+     * Tracks the phone's physical orientation and feeds it to CameraX as the use cases' target
+     * rotation. CameraX then reports (via the preview SurfaceRequest's TransformationInfo) exactly
+     * how many degrees the frame must be rotated to be upright — the device-authoritative value we
+     * send to the remote. This also keeps captured-photo EXIF orientation correct.
+     */
+    private var lastRotation = -1
+    private val orientationListener by lazy {
+        object : OrientationEventListener(context) {
+            override fun onOrientationChanged(orientation: Int) {
+                if (orientation == ORIENTATION_UNKNOWN) return
+                val rotation = when (orientation) {
+                    in 45 until 135 -> Surface.ROTATION_270
+                    in 135 until 225 -> Surface.ROTATION_180
+                    in 225 until 315 -> Surface.ROTATION_90
+                    else -> Surface.ROTATION_0
+                }
+                if (rotation == lastRotation) return
+                lastRotation = rotation
+                preview?.targetRotation = rotation
+                imageCapture?.targetRotation = rotation
+                PhotopultLog.d("targetRotation -> $rotation")
+            }
+        }
+    }
 
     /** Persisted across rebind (lens switch / resolution change) so the setting sticks. */
     private var flashMode = ImageCapture.FLASH_MODE_OFF
@@ -59,6 +88,7 @@ class CameraController(
 
     fun start(surfaceProvider: Preview.SurfaceProvider) {
         encoderSurfaceProvider = surfaceProvider
+        if (orientationListener.canDetectOrientation()) orientationListener.enable()
         val future = ProcessCameraProvider.getInstance(context)
         future.addListener({
             runCatching {
@@ -80,7 +110,7 @@ class CameraController(
                 ),
             )
             .build()
-        val preview = Preview.Builder()
+        val previewUseCase = Preview.Builder()
             .setResolutionSelector(resolutionSelector)
             .build()
             .also { it.setSurfaceProvider(executor, surfaceProvider) }
@@ -88,12 +118,18 @@ class CameraController(
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
             .build()
             .also { it.flashMode = flashMode }
+        // Apply the current physical orientation so CameraX reports the right rotation from the start.
+        if (lastRotation >= 0) {
+            previewUseCase.targetRotation = lastRotation
+            capture.targetRotation = lastRotation
+        }
         val selector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
 
         cameraProvider.unbindAll()
-        val boundCamera = cameraProvider.bindToLifecycle(lifecycleOwner, selector, preview, capture)
+        val boundCamera = cameraProvider.bindToLifecycle(lifecycleOwner, selector, previewUseCase, capture)
         camera = boundCamera
         imageCapture = capture
+        preview = previewUseCase
 
         val info = boundCamera.cameraInfo
         PhotopultLog.i("camera bound lens=$lensFacing sensorRot=${info.sensorRotationDegrees}")
@@ -202,10 +238,12 @@ class CameraController(
     }
 
     fun stop() {
+        runCatching { orientationListener.disable() }
         runCatching { provider?.unbindAll() }
         runCatching { executor.shutdown() }
         camera = null
         imageCapture = null
+        preview = null
         PhotopultLog.i("camera stopped")
     }
 }

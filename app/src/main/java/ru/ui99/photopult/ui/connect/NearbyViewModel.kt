@@ -119,13 +119,12 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
     // ---- Preview streaming (Stage 3) ----
 
     /** Camera role: start capturing and streaming to the connected remote. */
-    fun startCameraSession(lifecycleOwner: LifecycleOwner, deviceRotationProvider: () -> Int) {
+    fun startCameraSession(lifecycleOwner: LifecycleOwner) {
         if (cameraSession != null) return
         val session = CameraSession(
             context = getApplication<Application>(),
             lifecycleOwner = lifecycleOwner,
             manager = manager,
-            deviceRotationProvider = deviceRotationProvider,
             transferQueue = transferQueue,
             onCountdown = { _cameraCountdown.value = it },
             onSnapped = { _snapFlash.value++ },

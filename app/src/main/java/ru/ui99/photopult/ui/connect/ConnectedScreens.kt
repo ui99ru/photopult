@@ -13,7 +13,6 @@ import android.os.VibratorManager
 import android.util.Base64
 import android.view.Surface
 import android.view.TextureView
-import android.view.WindowManager
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -92,7 +91,7 @@ fun CameraConnectedScreen(
     val lastPhoto by viewModel.cameraLastPhoto.collectAsState()
 
     DisposableEffect(Unit) {
-        viewModel.startCameraSession(lifecycleOwner) { deviceRotationDegrees(context) }
+        viewModel.startCameraSession(lifecycleOwner)
         onDispose { viewModel.stopSessions() }
     }
 
@@ -813,20 +812,3 @@ private fun vibrateShort(context: Context) {
     }
 }
 
-private fun formatZoom(zoom: Float): String = String.format("%.1f", zoom)
-
-/** The camera phone's display rotation in degrees, for the upright-preview math. */
-private fun deviceRotationDegrees(context: Context): Int {
-    val rotation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        context.display?.rotation ?: Surface.ROTATION_0
-    } else {
-        @Suppress("DEPRECATION")
-        (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
-    }
-    return when (rotation) {
-        Surface.ROTATION_90 -> 90
-        Surface.ROTATION_180 -> 180
-        Surface.ROTATION_270 -> 270
-        else -> 0
-    }
-}
