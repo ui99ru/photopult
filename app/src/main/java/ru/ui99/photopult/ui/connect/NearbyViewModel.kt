@@ -6,7 +6,6 @@ import android.net.Uri
 import android.view.Surface
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -119,11 +118,10 @@ class NearbyViewModel(application: Application) : AndroidViewModel(application) 
     // ---- Preview streaming (Stage 3) ----
 
     /** Camera role: start capturing and streaming to the connected remote. */
-    fun startCameraSession(lifecycleOwner: LifecycleOwner) {
+    fun startCameraSession() {
         if (cameraSession != null) return
         val session = CameraSession(
             context = getApplication<Application>(),
-            lifecycleOwner = lifecycleOwner,
             manager = manager,
             transferQueue = transferQueue,
             onCountdown = { _cameraCountdown.value = it },

@@ -57,7 +57,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -83,7 +82,6 @@ fun CameraConnectedScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
     var dimmed by remember { mutableStateOf(false) }
     val countdown by viewModel.cameraCountdown.collectAsState()
     val snapFlash by viewModel.snapFlash.collectAsState()
@@ -91,7 +89,7 @@ fun CameraConnectedScreen(
     val lastPhoto by viewModel.cameraLastPhoto.collectAsState()
 
     DisposableEffect(Unit) {
-        viewModel.startCameraSession(lifecycleOwner)
+        viewModel.startCameraSession()
         onDispose { viewModel.stopSessions() }
     }
 

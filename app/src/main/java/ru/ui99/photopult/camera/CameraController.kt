@@ -14,7 +14,9 @@ import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import ru.ui99.photopult.util.PhotopultLog
@@ -24,16 +26,19 @@ import ru.ui99.photopult.util.PhotopultLog
  * input Surface (lowest-latency path) and keeps an [ImageCapture] use case for full-quality photos
  * (Stage 5). Zoom and lens switching are applied here and reported back through the state protocol.
  *
- * The operator frames the shot via the remote's live preview, so there is no separate on-device
- * live PreviewView here (a deliberate simplification — see the PR's accepted decisions); the camera
- * screen shows status and the "Снято!" flash instead, and can dim to save battery.
+ * CameraX is bound to this controller's **own** lifecycle (not the Activity's), kept RESUMED for the
+ * whole session. That's what lets the camera keep streaming when the phone's screen turns off /
+ * goes to standby — paired with the foreground service (type `camera`) and a wake lock, the session
+ * survives the display sleeping instead of tearing down with the Activity.
  */
 class CameraController(
     private val context: Context,
-    private val lifecycleOwner: LifecycleOwner,
     private val targetWidth: Int = 1280,
     private val targetHeight: Int = 720,
-) {
+) : LifecycleOwner {
+
+    private val lifecycleRegistry = LifecycleRegistry(this)
+    override val lifecycle: Lifecycle get() = lifecycleRegistry
     private val executor = Executors.newSingleThreadExecutor()
     private var provider: ProcessCameraProvider? = null
     private var camera: Camera? = null
@@ -88,6 +93,10 @@ class CameraController(
 
     fun start(surfaceProvider: Preview.SurfaceProvider) {
         encoderSurfaceProvider = surfaceProvider
+        // Keep our lifecycle RESUMED so CameraX stays bound even when the screen turns off.
+        ContextCompat.getMainExecutor(context).execute {
+            lifecycleRegistry.currentState = Lifecycle.State.RESUMED
+        }
         if (orientationListener.canDetectOrientation()) orientationListener.enable()
         val future = ProcessCameraProvider.getInstance(context)
         future.addListener({
@@ -126,7 +135,7 @@ class CameraController(
         val selector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
 
         cameraProvider.unbindAll()
-        val boundCamera = cameraProvider.bindToLifecycle(lifecycleOwner, selector, previewUseCase, capture)
+        val boundCamera = cameraProvider.bindToLifecycle(this, selector, previewUseCase, capture)
         camera = boundCamera
         imageCapture = capture
         preview = previewUseCase
@@ -244,6 +253,9 @@ class CameraController(
         camera = null
         imageCapture = null
         preview = null
+        ContextCompat.getMainExecutor(context).execute {
+            lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
+        }
         PhotopultLog.i("camera stopped")
     }
 }

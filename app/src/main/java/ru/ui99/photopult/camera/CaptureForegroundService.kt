@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import ru.ui99.photopult.R
 import ru.ui99.photopult.ui.MainActivity
@@ -24,6 +25,8 @@ import ru.ui99.photopult.util.PhotopultLog
  */
 class CaptureForegroundService : Service() {
 
+    private var wakeLock: PowerManager.WakeLock? = null
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -34,12 +37,29 @@ class CaptureForegroundService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+        acquireWakeLock()
         return START_STICKY
     }
 
     override fun onDestroy() {
+        releaseWakeLock()
         PhotopultLog.i("foreground service stopped")
         super.onDestroy()
+    }
+
+    /** Keep the CPU running so the encoder + Nearby stream survive the screen turning off. */
+    private fun acquireWakeLock() {
+        if (wakeLock?.isHeld == true) return
+        val pm = getSystemService(POWER_SERVICE) as? PowerManager ?: return
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Photopult:capture").apply {
+            setReferenceCounted(false)
+            acquire(4 * 60 * 60 * 1000L) // safety cap (4h); released on stop
+        }
+    }
+
+    private fun releaseWakeLock() {
+        runCatching { if (wakeLock?.isHeld == true) wakeLock?.release() }
+        wakeLock = null
     }
 
     private fun buildNotification(): Notification {

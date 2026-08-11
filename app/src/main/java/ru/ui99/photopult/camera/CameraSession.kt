@@ -9,7 +9,6 @@ import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.LifecycleOwner
 import com.google.android.gms.nearby.connection.PayloadTransferUpdate
 import java.io.File
 import java.io.OutputStream
@@ -47,7 +46,6 @@ import ru.ui99.photopult.util.PhotopultLog
  */
 class CameraSession(
     private val context: Context,
-    lifecycleOwner: LifecycleOwner,
     private val manager: NearbyConnectionManager,
     private val transferQueue: TransferQueue,
     private val onCountdown: (Int?) -> Unit = {},
@@ -62,7 +60,7 @@ class CameraSession(
     }
 
     private var currentRung = BitrateLadder.best
-    private val controller = CameraController(context, lifecycleOwner, currentRung.width, currentRung.height)
+    private val controller = CameraController(context, currentRung.width, currentRung.height)
     private val surfaceExecutor = Executors.newSingleThreadExecutor()
     private val captureExecutor = Executors.newSingleThreadExecutor()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
