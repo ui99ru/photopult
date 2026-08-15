@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Monochrome layer for themed icons (Android 13+). Same geometry as the foreground; the launcher
+  ignores the fill colour and re-tints the silhouette to match the system theme.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#000000"
+        android:fillType="evenOdd"
+        android:pathData="M30,54 a24,24 0 1,0 48,0 a24,24 0 1,0 -48,0 Z
+                          M36,54 a18,18 0 1,0 36,0 a18,18 0 1,0 -36,0 Z" />
+    <path
+        android:fillColor="#000000"
+        android:pathData="M54,22 L47,29 L61,29 Z
+                          M86,54 L79,47 L79,61 Z
+                          M54,86 L61,79 L47,79 Z
+                          M22,54 L29,61 L29,47 Z" />
+    <path
+        android:fillColor="#000000"
+        android:fillType="evenOdd"
+        android:pathData="M42,54 a12,12 0 1,0 24,0 a12,12 0 1,0 -24,0 Z
+                          M45,54 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0 Z" />
+    <path
+        android:fillColor="#000000"
+        android:fillType="evenOdd"
+        android:pathData="M48,54 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 Z
+                          M51.2,54 a2.8,2.8 0 1,0 5.6,0 a2.8,2.8 0 1,0 -5.6,0 Z" />
+    <path
+        android:fillColor="#000000"
+        android:pathData="M51.8,52.8 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0 Z" />
+</vector>

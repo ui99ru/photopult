@@ -29,8 +29,83 @@
     <string name="gms_update_title">Update Google Play services</string>
     <string name="gms_update_body">Please update Google Play services so the app can work.</string>
 
-    <!-- Placeholder screens (filled in on later stages) -->
-    <string name="camera_role_placeholder">Camera mode arrives in the next stage</string>
-    <string name="remote_role_placeholder">Remote mode arrives in the next stage</string>
     <string name="action_back">Back</string>
+
+    <!-- Connection (Stage 2) -->
+    <string name="connect_camera_searching">Waiting for the remote…</string>
+    <string name="connect_camera_name">This camera: %1$s</string>
+    <string name="connect_camera_hint">Open the app on the other phone and choose \"remote\"</string>
+    <string name="connect_remote_searching">Looking for cameras nearby…</string>
+    <string name="connect_remote_found_title">Cameras found</string>
+    <string name="connect_connecting">Connecting…</string>
+    <string name="confirm_title">Is this your pair?</string>
+    <string name="confirm_body">Check that both phones show the same icons and digits</string>
+    <string name="confirm_yes">Yes, that\'s it</string>
+    <string name="confirm_no">No</string>
+    <string name="connect_connected_title">Connected ✅</string>
+    <string name="connect_connected_to">Phone: %1$s</string>
+    <string name="connect_reconnecting">Connection lost — reconnecting to \"%1$s\"…</string>
+    <string name="connect_failed_title">Couldn\'t connect</string>
+    <string name="connect_retry">Try again</string>
+    <string name="connected_camera_note">Remote connected</string>
+    <string name="pair_forget">Forget device</string>
+    <string name="camera_on_air_title">Camera on air</string>
+    <string name="camera_on_air_hint">The remote is in control. Leave the phone in place.</string>
+    <string name="camera_dim">Dim screen</string>
+    <string name="camera_disconnect">Disconnect</string>
+    <string name="remote_waiting_preview">Waiting for the camera preview…</string>
+    <string name="remote_switch_camera">Switch camera</string>
+    <string name="remote_switch_camera_short">Camera ⇄</string>
+    <string name="remote_grid">Grid</string>
+    <string name="remote_battery_low">Camera battery low</string>
+    <string name="gallery_open">Open in gallery</string>
+    <string name="snapped">Got it!</string>
+    <string name="timer_now">Now</string>
+    <string name="timer_sec">%1$d s</string>
+
+    <!-- Flash, exposure (Stage 6) -->
+    <string name="flash_off">Flash: off</string>
+    <string name="flash_auto">Flash: auto</string>
+    <string name="flash_on">Flash: on</string>
+    <string name="exposure_value">EV %1$s</string>
+
+    <!-- Foreground service (Stage 6) -->
+    <string name="fgs_title">Photopult is shooting</string>
+    <string name="fgs_text">Session active — the phone is ready to take photos on the remote\'s command</string>
+    <string name="fgs_channel_name">Active capture</string>
+    <string name="fgs_channel_desc">Notification shown while the camera is linked to the remote</string>
+
+    <!-- Camera state on the remote (Stage 2b) -->
+    <string name="state_waiting">Requesting camera state…</string>
+    <string name="state_battery">Camera battery: %1$d%%</string>
+    <string name="state_battery_unknown">Camera battery: unknown</string>
+    <string name="state_flash">Flash: %1$s</string>
+    <string name="state_lens">Camera: %1$s</string>
+    <string name="state_zoom">Zoom: %1$s</string>
+    <string name="state_placeholder_note">Zoom/flash/camera are placeholders until the capture stage</string>
+    <string name="state_refresh">Refresh state</string>
+
+    <!-- Version + hidden debug screen -->
+    <string name="version_label">Photopult v%1$s</string>
+    <string name="debug_open">Debug</string>
+    <string name="debug_title">Connection debug</string>
+    <string name="debug_state">State: %1$s</string>
+    <string name="debug_events">Events: %1$d</string>
+    <string name="debug_clear">Clear</string>
+    <string name="debug_empty">No events yet</string>
+    <string name="debug_state_idle">Idle</string>
+    <string name="debug_state_advertising">Visible as %1$s</string>
+    <string name="debug_state_discovering">Discovering (found: %1$d)</string>
+    <string name="debug_state_confirming">Confirming %1$s, code %2$s</string>
+    <string name="debug_state_connected">Connected to %1$s</string>
+    <string name="debug_state_reconnecting">Reconnecting to %1$s</string>
+    <string name="debug_state_failed">Error: %1$s</string>
+    <string name="debug_stream">Stream: %1$d×%2$d, rotation %3$d°</string>
+    <string name="debug_frames">Frames: rendered %1$d, dropped %2$d</string>
+    <string name="debug_link">Link quality: %1$d/3</string>
+    <string name="debug_bitrate">Camera bitrate: %1$d kbps, %2$s</string>
+    <string name="debug_transfers">Photo transfer queue: %1$d</string>
+    <string name="debug_camera_state">Camera: flash %1$s, zoom ×%2$s, lens %3$s</string>
+    <string name="debug_camera_exposure">Exposure: EV %1$d (range %2$d…%3$d)</string>
+    <string name="debug_camera_battery">Camera battery: %1$d%%</string>
 </resources>

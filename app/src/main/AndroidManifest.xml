@@ -35,6 +35,16 @@
     <!-- Keep the capture session alive in the background (incoming calls, etc.). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <!-- Show the ongoing "capture in progress" notification on API 33+. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Keep the CPU awake while streaming so the session survives the screen turning off. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Shutter feedback + saving photos to the gallery (scoped storage on API 29+). -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
 
     <application
         android:name=".PhotopultApp"

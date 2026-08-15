@@ -5,6 +5,18 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// Release signing is driven entirely by -P properties supplied by release.yml (decoded from
+// repository secrets). When they are absent — every local/CI debug build — the release build type
+// is simply left unsigned, so nothing here needs the secrets to compile.
+val releaseStoreFile = (project.findProperty("PHOTOPULT_STORE_FILE") as String?)
+val releaseStorePassword = (project.findProperty("PHOTOPULT_STORE_PASSWORD") as String?)
+val releaseKeyAlias = (project.findProperty("PHOTOPULT_KEY_ALIAS") as String?)
+val releaseKeyPassword = (project.findProperty("PHOTOPULT_KEY_PASSWORD") as String?)
+val hasReleaseSigning = !releaseStoreFile.isNullOrBlank() &&
+    !releaseStorePassword.isNullOrBlank() &&
+    !releaseKeyAlias.isNullOrBlank() &&
+    !releaseKeyPassword.isNullOrBlank()
+
 android {
     namespace = "ru.ui99.photopult"
     compileSdk = 36
@@ -14,15 +26,40 @@ android {
         minSdk = 26
         targetSdk = 36
 
-        // Placeholders — on Stage 6 these are derived from the release tag in release.yml.
-        versionCode = 1
-        versionName = "0.1.0"
+        // Derived from the release tag by release.yml (v1.2.3 → name "1.2.3", code 10203);
+        // the fallbacks keep local/debug builds working without any flags.
+        versionCode = (project.findProperty("PHOTOPULT_VERSION_CODE") as String?)?.toIntOrNull() ?: 1
+        versionName = (project.findProperty("PHOTOPULT_VERSION_NAME") as String?) ?: "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        // Committed debug key so every build (local or CI) shares one signature — debug APKs
+        // install as upgrades over each other on test devices instead of erroring with
+        // "package conflicts with an existing package". A debug keystore is not a secret.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
+            signingConfig = if (hasReleaseSigning) signingConfigs.getByName("release") else null
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -42,6 +79,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="warm_background">#121011</color>
-    <color name="ic_launcher_background">#2B2422</color>
+    <!-- App icon background — solid blue (swap for a brand colour if needed). -->
+    <color name="ic_launcher_background">#2166F3</color>
 </resources>
